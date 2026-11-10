@@ -61,7 +61,7 @@ function randomResponse(a, r) {
 const seen = new Map(); let totalMoves = 0, invalid = 0, stuck = 0, errs = new Map(), sums = 0, undoFail = 0;
 const N = +(process.argv[2] || 150);
 for (const [dn, deck] of Object.entries(decks)) for (let g = 0; g < N; g++) {
-  const r = rnd(g * 7919 + (dn === "tear" ? 1 : 2)); const s = new Session(lib, db, scripts, { chainAll: g % 3 === 0, autoZoneMon: g % 2 === 0 });
+  const r = rnd(g * 7919 + (dn === "tear" ? 1 : 2)); const s = new Session(lib, db, scripts, { chainAll: g % 3 === 0, autoZoneMon: g % 2 === 0, autoSingle: g % 2 === 1, autoAtk: g % 4 === 0 });
   let ask = s.start({ ...deck, forced: [], seed: g + 1 }), moves = 0;
   while (ask && s.turn <= 1 && moves < 400) {
     seen.set(ask.type, (seen.get(ask.type) || 0) + 1);

@@ -295,7 +295,7 @@ async function boot() {
     S.cfg = { ...S.cfg, ...ls.get("tdp2_cfg", {}) };
     S.deckId = ls.get("tdp2_last", null); if (!curDeck()) S.deckId = S.decks[0]?.id || null;
     if (curDeck()) newHand(false); else S.view = "decks";
-    if (!ls.get("tdp2_tip", 0) && curDeck()) S.sheet = { kind: "html", html: `<h3>Come si gioca qui</h3><div class="opts tips"><div><b>Tocca una carta con il bordo dorato</b> per giocarla. Se puoi farci più cose, compare un piccolo menu.</div><div><b>Tienila premuta</b> per leggerla e vedere tutte le azioni, anche "Posiziona coperta". Sul PC: tasto destro, e per leggere basta passarci sopra il mouse.</div><div><b>Annulla</b> torna indietro di una mossa, <b>Nuova mano</b> rimescola e ricomincia.</div></div><div class="row"><button class="btn primary" data-act="tipok">Ho capito</button></div>` };
+    if (!ls.get("tdp2_tip", 0) && curDeck()) S.sheet = { kind: "html", html: `<h3>Come si gioca qui</h3><div class="opts tips"><div><b>Tocca una carta con il bordo dorato</b> per giocarla. Se puoi farci più cose, compare un piccolo menu.</div><div><b>Tienila premuta</b> per leggerla e vedere tutte le azioni, anche "Posiziona coperta". Sul PC per leggere basta passarci sopra il mouse.</div><div><b>Tasto destro del mouse = no, ci ripenso.</b> Chiude il menu, rifiuta un effetto, e se stavi scegliendo una zona o una carta annulla l'azione che avevi iniziato. Su una carta, quando non c'è niente da rifiutare, apre la scheda completa.</div><div><b>Annulla</b> torna indietro di una mossa, <b>Nuova mano</b> rimescola e ricomincia.</div></div><div class="row"><button class="btn primary" data-act="tipok">Ho capito</button></div>` };
     render();
   } catch (e) { console.error(e); fatal(e); }
 }
@@ -539,7 +539,7 @@ function settingsHTML() {
   const v = VER ? `Carte ${VER.cards.toLocaleString("it-IT")}, regole aggiornate al ${String(VER.CardScripts?.[1] || VER.built).slice(0, 10).split("-").reverse().join("/")}.` : "";
   return `<h3>Impostazioni</h3>
     ${row("chainAll", "Chiedimi se voglio rispondere in catena", "Spento: l'app chiede solo per gli effetti che si innescano. Acceso: chiede anche ogni volta che potresti attivare un effetto rapido o una carta dalla mano, come fa EDOPro.")}
-    ${row("quickTap", "Tocco rapido", "Acceso: se con una carta puoi fare una cosa sola (a parte posizionarla coperta), toccarla la fa subito. Per leggerla o posizionarla tienila premuta, sul PC usa il tasto destro. Spento: ogni tocco apre il menu.")}
+    ${row("quickTap", "Tocco rapido", "Acceso: se con una carta puoi fare una cosa sola (a parte posizionarla coperta), toccarla la fa subito. Per leggerla o posizionarla tienila premuta, sul PC usa il tasto destro sulla carta. Spento: ogni tocco apre il menu. Sul PC il tasto destro vale anche come \"no, ci ripenso\".")}
     ${row("autoSingle", "Scelte obbligate fatte dall'app", "Acceso: quando c'è una sola carta o una sola opzione che puoi scegliere, l'app la sceglie senza chiedere. La trovi comunque nella cronologia.")}
     ${row("autoAtk", "Evoca sempre in Attacco", "Acceso: l'app non chiede la posizione quando evochi specialmente e mette il mostro in Attacco.")}
     ${row("autoZoneMon", "Le zone dei mostri le sceglie l'app", "Acceso: i mostri vanno nella prima zona libera senza chiedere. Lascialo spento se giochi mostri Link, dove la zona conta.")}
@@ -670,11 +670,43 @@ function openCard(t) {
 // scheda completa della carta con tutte le azioni (tieni premuto sul telefono, tasto destro sul PC)
 function readCard(t) { S.pop = null; S.sheet = { kind: "card", f: cardFocus(t) }; renderLayer(); }
 let pressTimer = null, pressFired = false, pressXY = null;
-document.addEventListener("pointerdown", (ev) => { const t = ev.target.closest('.card[data-act="card"]'); pressFired = false; clearTimeout(pressTimer); if (!t || ev.pointerType === "mouse") return;
+let lastPointer = "mouse";
+document.addEventListener("pointerdown", (ev) => { lastPointer = ev.pointerType || "mouse"; const t = ev.target.closest('.card[data-act="card"]'); pressFired = false; clearTimeout(pressTimer); if (!t || ev.pointerType === "mouse") return;
   pressXY = [ev.clientX, ev.clientY]; pressTimer = setTimeout(() => { pressFired = true; readCard(t); }, 430); });
 document.addEventListener("pointermove", (ev) => { if (pressXY && Math.hypot(ev.clientX - pressXY[0], ev.clientY - pressXY[1]) > 10) { clearTimeout(pressTimer); pressXY = null; } });
 for (const e of ["pointerup", "pointercancel"]) document.addEventListener(e, () => { clearTimeout(pressTimer); pressXY = null; });
-document.addEventListener("contextmenu", (ev) => { const t = ev.target.closest('.card[data-act="card"]'); if (!t) return; ev.preventDefault(); if (!pressFired) readCard(t); });
+function doUndo() { S.sheet = null; S.info = null; S.pop = null; S.sel = []; S.places = []; S.hidePrompt = false; S.ask = S.duel.undo(); render(); }
+// Tasto destro = "no, ci ripenso": chiude quello che è aperto, rifiuta se si può rifiutare,
+// e se la scelta è obbligata torna indietro di una mossa. Ritorna true se ha fatto qualcosa.
+function sayNo() {
+  if (S.info) { S.info = null; renderLayer(); return true; }
+  if (S.pop) { S.pop = null; renderLayer(); return true; }
+  if (S.sheet) { S.sheet = null; renderLayer(); return true; }
+  const a = S.ask, d = S.duel; if (S.view !== "duel" || !d || d.ended || !a || a.type === M.SELECT_IDLECMD || a.type === M.SELECT_BATTLECMD) return false;
+  if (S.hidePrompt) { S.hidePrompt = false; render(); return true; }
+  if (S.sel.length) { S.sel = []; renderLayer(); return true; }                       // toglie le carte già segnate
+  switch (a.type) {
+    case M.SELECT_EFFECTYN: respond({ type: R.EFFECTYN, yes: false }); return true;
+    case M.SELECT_YESNO: respond({ type: R.YESNO, yes: false }); return true;
+    case M.SELECT_CHAIN: if (!a.forced) { respond({ type: R.CHAIN, index: null }); return true; } break;
+    case M.SELECT_CARD: if (a.can_cancel) { respond({ type: R.CARD, indicies: null }); return true; } break;
+    case M.SELECT_TRIBUTE: if (a.can_cancel) { respond({ type: R.TRIBUTE, indicies: null }); return true; } break;
+    case M.SELECT_UNSELECT_CARD:
+      if (a.unselect_cards.length) { respond({ type: R.UNSELECT, index: a.select_cards.length + a.unselect_cards.length - 1 }); return true; } // toglie l'ultima scelta
+      if (a.can_cancel || a.can_finish) { respond({ type: R.UNSELECT, index: null }); return true; } break;
+  }
+  // scelta obbligata: si torna a prima dell'azione che l'ha fatta comparire
+  if (d.moves) { S.sheet = null; S.info = null; S.pop = null; S.sel = []; S.places = []; S.ask = d.undoAction(); render(); toast("Azione annullata"); return true; }
+  return false;
+}
+document.addEventListener("contextmenu", (ev) => {
+  if (ev.target.closest("input, textarea, a")) return;
+  const t = ev.target.closest('.card[data-act="card"]');
+  if (lastPointer !== "mouse") { if (t) { ev.preventDefault(); if (!pressFired) readCard(t); } return; } // telefono: il tocco lungo legge la carta
+  ev.preventDefault();
+  if (sayNo()) return;
+  if (t) readCard(t); // a tavolo fermo, tasto destro su una carta: scheda completa con tutte le azioni
+});
 document.addEventListener("click", async (ev) => {
   if (pressFired) { pressFired = false; return; } // il tocco lungo ha già aperto la scheda
   const t = ev.target.closest("[data-act]");
@@ -686,7 +718,7 @@ document.addEventListener("click", async (ev) => {
     case "settings": S.sheet = { kind: "settings" }; renderLayer(); break;
     case "newhand": newHand(false); render(); break;
     case "restart": newHand(true); render(); break;
-    case "undo": S.sheet = null; S.info = null; S.sel = []; S.places = []; S.hidePrompt = false; S.ask = S.duel.undo(); render(); break;
+    case "undo": doUndo(); break;
     case "pickhand": S.sheet = { kind: "pickhand", pick: S.forced.slice(), filter: "" }; renderLayer(); break;
     case "hplus": { const c = Number(t.dataset.c); const have = curDeck().main.filter((x) => x === c).length;
       if (S.sheet.pick.length >= 5) toast("La mano iniziale è di 5 carte"); else if (S.sheet.pick.filter((x) => x === c).length < have) S.sheet.pick.push(c); renderLayer(); break; }
@@ -770,7 +802,7 @@ document.addEventListener("keydown", (ev) => {
   if (ev.target.matches("input, textarea, select") || ev.ctrlKey || ev.metaKey || ev.altKey || S.view !== "duel" || !S.duel) return;
   const k = ev.key.toLowerCase();
   if (k === "n") { newHand(false); render(); } else if (k === "r") { newHand(true); render(); }
-  else if (k === "z" && S.duel.moves) { S.sheet = null; S.info = null; S.sel = []; S.places = []; S.hidePrompt = false; S.ask = S.duel.undo(); render(); }
+  else if (k === "z" && S.duel.moves) doUndo();
 });
 // accesso per le prove automatiche: stack() avvia una partita con le carte in cima al mazzo in un ordine preciso
 window.__tdp = { S, get DB() { return DB; }, respond, render,

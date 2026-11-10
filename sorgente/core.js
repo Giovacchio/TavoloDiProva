@@ -311,6 +311,15 @@ export class Session {
     if (!keep.length) return this.pending; keep.pop();
     return this._replay(keep);
   }
+  // "ci ripenso": torna a prima dell'ultima cosa che il giocatore ha deciso di iniziare
+  // (un'azione dal tavolo, un "sì" a un effetto, un effetto scelto in catena), annullando tutte le scelte fatte dopo.
+  undoAction() {
+    const keep = this.responses.slice(); let j = -1;
+    for (let i = keep.length - 1; i >= 0; i--) { const x = keep[i]; if (x.auto) continue; const r = x.r;
+      if (r.type === R.IDLECMD || r.type === R.BATTLECMD || (r.type === R.EFFECTYN && r.yes) || (r.type === R.CHAIN && r.index != null)) { j = i; break; } }
+    if (j < 0) return this.pending;
+    return this._replay(keep.slice(0, j));
+  }
   restart() { this.responses = []; this._create(); return this.run(); }
   destroy() { if (this.h) { try { this.lib.destroyDuel(this.h); } catch (e) {} this.h = null; } }
   zone(p, l) { try { return this.lib.duelQueryLocation(this.h, { flags: Q_FLAGS, controller: p, location: l }) || []; } catch (e) { return []; } }
