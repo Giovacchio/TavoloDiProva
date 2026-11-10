@@ -1,0 +1,780 @@
+<title>Tavolo di Prova 2</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Impianto: un tappetino da duello sempre scuro al centro, comandi essenziali attorno.
+   Telefono: tappetino a 5 colonne con le pile in una riga bassa, mano sotto, azioni in fondo.
+   PC: tappetino a 7 colonne come quello vero, a destra la carta ingrandita e la cronologia. */
+:root {
+  color-scheme: dark;
+  --bg: #0d1317; --surface: #161f25; --surface-2: #1e2a32; --line: #2b3a44; --fg: #e9eff1; --muted: #94a6af;
+  --accent: #f2b441; --accent-fg: #1c1303; --accent-ink: #f2b441; --pick: #55d6ea; --bad: #ff7466; --good: #6fd08c;
+  --mat-1: #12343f; --mat-2: #0a2029; --mat-line: rgba(255,255,255,.17); --mat-zone: rgba(255,255,255,.055); --mat-fg: #e3eef0; --mat-muted: #8eb0b9;
+  --f-normal: #c8a45c; --f-effect: #bf6c38; --f-ritual: #4c7cc2; --f-fusion: #8754b6; --f-synchro: #e6e6e1; --f-xyz: #2a2a30; --f-link: #2c6bb1; --f-spell: #1c9685; --f-trap: #b14487; --f-token: #868c94;
+  --display: "Chakra Petch", "Trebuchet MS", system-ui, sans-serif; --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --r: 10px; --cw: 62px; --ch: calc(var(--cw) * 1.458); --hw: 66px; --g: 5px;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  color-scheme: light; --bg: #edf0ef; --surface: #ffffff; --surface-2: #f3f5f4; --line: #d3dad8; --fg: #142026; --muted: #5a6a72; --accent: #eaa92c; --accent-fg: #1c1303; --accent-ink: #8a5800; --bad: #c8372a; --good: #1f7a3f; } }
+:root[data-theme="light"] { color-scheme: light; --bg: #edf0ef; --surface: #ffffff; --surface-2: #f3f5f4; --line: #d3dad8; --fg: #142026; --muted: #5a6a72; --accent: #eaa92c; --accent-fg: #1c1303; --accent-ink: #8a5800; --bad: #c8372a; --good: #1f7a3f; }
+
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.4 var(--body); -webkit-tap-highlight-color: transparent; overflow: hidden; touch-action: manipulation; overscroll-behavior: none; }
+* { box-sizing: border-box; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--pick); outline-offset: 2px; }
+
+.app { height: 100%; display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 8px; padding-block: 8px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); max-width: 1320px; margin: 0 auto; }
+
+/* ---- testata */
+.top { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand { font: 700 19px/1 var(--display); letter-spacing: .02em; text-transform: uppercase; white-space: nowrap; }
+.brand i { font-style: normal; color: var(--accent-ink); }
+.tabs { margin-left: auto; display: flex; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+.tabs button { border: 0; background: none; padding: 6px 14px; border-radius: 999px; font: 600 14px var(--display); letter-spacing: .03em; color: var(--muted); }
+.tabs button[aria-selected="true"] { background: var(--fg); color: var(--bg); }
+.icon-btn { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; width: 36px; height: 36px; display: grid; place-items: center; flex: none; }
+.icon-btn svg { width: 18px; height: 18px; }
+
+.deckbar { display: flex; gap: 8px; align-items: stretch; min-width: 0; }
+.deckbar select { flex: 1; min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 0 10px; height: 42px; font-weight: 600; text-overflow: ellipsis; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: var(--r); padding: 0 14px; min-height: 42px; font: 600 15px var(--display); letter-spacing: .02em; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.btn.ghost { background: none; }
+.btn.danger { color: var(--bad); }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn.small { min-height: 34px; padding: 0 10px; font-size: 13px; }
+.btn .n { font-variant-numeric: tabular-nums; opacity: .75; }
+
+/* ---- zona di gioco */
+.stage { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 14px; }
+.col { min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.table { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; overflow: hidden auto; }
+.side { display: none; }
+.status { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); min-width: 0; white-space: nowrap; overflow: hidden; }
+.status b { color: var(--fg); font: 600 13px var(--display); font-variant-numeric: tabular-nums; }
+.phases { display: flex; gap: 3px; }
+.ph { font: 600 10.5px var(--display); letter-spacing: .04em; padding: 2px 4px; border-radius: 4px; border: 1px solid var(--line); color: var(--muted); }
+.ph.on { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.status .sp { margin-left: auto; }
+.warn-chip { border: 1px solid var(--bad); color: var(--bad); background: none; border-radius: 999px; padding: 1px 8px; font-size: 12px; }
+
+.mat-wrap { background: radial-gradient(120% 90% at 50% 0%, var(--mat-1), var(--mat-2)); border-radius: 14px; padding: 8px; color: var(--mat-fg); display: flex; flex-direction: column; gap: 6px; align-items: center;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); }
+.opp { align-self: stretch; display: flex; gap: 8px; align-items: center; font-size: 11.5px; color: var(--mat-muted); background: none; border: 0; padding: 0 2px; text-align: left; min-width: 0; }
+.opp b { color: var(--mat-fg); font-weight: 600; }
+.opp span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mat { display: grid; gap: var(--g); grid-template-columns: repeat(5, var(--cw)); justify-content: center;
+  grid-template-areas: ". e1 . e2 ." "m1 m2 m3 m4 m5" "s1 s2 s3 s4 s5" "fz gy bn ex dk"; }
+.zone { width: var(--cw); height: var(--ch); border-radius: calc(var(--cw) * .08); border: 1px dashed var(--mat-line); background: var(--mat-zone); position: relative; display: grid; place-items: center; padding: 0; color: inherit; }
+.zone.emz { border-style: solid; border-color: rgba(242,180,65,.5); }
+.zone.pointed { background: rgba(85,214,234,.13); border-color: rgba(85,214,234,.55); }
+.zone .zl { font: 600 calc(var(--cw) * .13) var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--mat-muted); opacity: .7; text-align: center; }
+.zone.pick { border: 2px solid var(--pick); background: rgba(85,214,234,.2); cursor: pointer; animation: pulse 1.1s ease-in-out infinite; }
+.zone.pick .zl { color: var(--pick); opacity: 1; }
+.zone.fz, .pile { height: calc(var(--ch) * .52); }
+@keyframes pulse { 50% { background: rgba(85,214,234,.34); } }
+
+.pile { width: var(--cw); border-radius: calc(var(--cw) * .08); border: 1px solid var(--mat-line); background: rgba(0,0,0,.28); position: relative; overflow: hidden; padding: 0; color: var(--mat-fg); display: grid; place-items: center; }
+.pile img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 26%; opacity: .5; }
+.pile .back { position: absolute; inset: 0; background: repeating-linear-gradient(135deg, #3a2a1c 0 5px, #4a3524 5px 10px); opacity: .55; }
+.pile .meta { position: relative; display: flex; flex-direction: column; align-items: center; line-height: 1; gap: 2px; text-shadow: 0 1px 3px #000; }
+.pile .meta b { font: 700 calc(var(--cw) * .3) var(--display); font-variant-numeric: tabular-nums; }
+.pile .meta i { font: 600 calc(var(--cw) * .135) var(--display); font-style: normal; letter-spacing: .06em; text-transform: uppercase; color: var(--mat-fg); opacity: .85; }
+.pile.act { box-shadow: 0 0 0 2px var(--accent), 0 0 12px rgba(242,180,65,.55); }
+
+/* ---- carte */
+.card { --w: var(--cw); width: var(--w); height: calc(var(--w) * 1.458); border-radius: calc(var(--w) * .07); border: 0; padding: 0; position: relative; overflow: hidden; display: block; flex: none;
+  background: var(--fc, #555); color: #14110c; box-shadow: 0 1px 3px rgba(0,0,0,.5); text-align: left; transition: transform .12s ease; }
+.card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+img.rimg:not(.ok) { visibility: hidden; }
+.card, .pile { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+.card.f-normal { --fc: var(--f-normal); } .card.f-effect { --fc: var(--f-effect); } .card.f-ritual { --fc: var(--f-ritual); } .card.f-fusion { --fc: var(--f-fusion); }
+.card.f-synchro { --fc: var(--f-synchro); } .card.f-xyz { --fc: var(--f-xyz); } .card.f-link { --fc: var(--f-link); } .card.f-spell { --fc: var(--f-spell); } .card.f-trap { --fc: var(--f-trap); } .card.f-token { --fc: var(--f-token); }
+.card.f-xyz, .card.f-link, .card.f-fusion, .card.f-trap, .card.f-ritual { color: #fff; }
+.card.f-synchro .art, .card.f-normal .art { background: rgba(0,0,0,.42); }
+.face { position: absolute; inset: calc(var(--w) * .055); display: flex; flex-direction: column; gap: calc(var(--w) * .04); }
+.face .nm { font: 600 calc(var(--w) * .135)/1.12 var(--body); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.face .art { flex: 1; min-height: 0; border-radius: calc(var(--w) * .04); background: rgba(0,0,0,.2); display: grid; place-items: center; font: 700 calc(var(--w) * .2)/1 var(--display); color: rgba(255,255,255,.9); text-align: center; }
+.face .art small { display: block; font-size: .55em; letter-spacing: .06em; opacity: .85; margin-top: .25em; }
+.face .st { font: 600 calc(var(--w) * .135)/1 var(--display); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.card .strip { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(8,10,12,.82); color: #fff; font: 600 calc(var(--w) * .15)/1.5 var(--display); font-variant-numeric: tabular-nums; text-align: center; }
+.card .strip.mod { color: var(--accent); }
+.card .badge { position: absolute; top: 3px; right: 3px; min-width: 1.5em; padding: 0 .3em; border-radius: 999px; background: #0b0d0f; color: #fff; font: 700 calc(var(--w) * .16)/1.5 var(--display); text-align: center; box-shadow: 0 0 0 1px rgba(255,255,255,.4); }
+.card .badge.neg { left: 3px; right: auto; background: var(--bad); color: #fff; }
+.card.fd::after { content: "COPERTA"; position: absolute; inset: 0; background: repeating-linear-gradient(135deg, rgba(20,14,8,.62) 0 6px, rgba(40,28,16,.5) 6px 12px); color: #fff; text-shadow: 0 1px 3px #000; display: grid; place-items: center; font: 700 calc(var(--w) * .13) var(--display); letter-spacing: .08em; }
+.zone .card.def { transform: rotate(90deg) scale(.685); }
+.card.act { box-shadow: 0 0 0 2px var(--accent), 0 0 14px 1px rgba(242,180,65,.7); }
+.card.sel { box-shadow: 0 0 0 3px var(--pick), 0 0 14px 1px rgba(85,214,234,.7); }
+.card.dim { opacity: .45; }
+.lk { position: absolute; width: 0; height: 0; border: calc(var(--w) * .06) solid transparent; }
+.lk.u { top: 1px; left: 50%; margin-left: calc(var(--w) * -.06); border-bottom-color: #ff5a47; border-top: 0; }
+.lk.d { bottom: 1px; left: 50%; margin-left: calc(var(--w) * -.06); border-top-color: #ff5a47; border-bottom: 0; }
+.lk.l { left: 1px; top: 50%; margin-top: calc(var(--w) * -.06); border-right-color: #ff5a47; border-left: 0; }
+.lk.r { right: 1px; top: 50%; margin-top: calc(var(--w) * -.06); border-left-color: #ff5a47; border-right: 0; }
+.lk.ul { top: 1px; left: 1px; border-top-color: #ff5a47; border-left-color: #ff5a47; border-width: calc(var(--w) * .045); }
+.lk.ur { top: 1px; right: 1px; border-top-color: #ff5a47; border-right-color: #ff5a47; border-width: calc(var(--w) * .045); }
+.lk.dl { bottom: 1px; left: 1px; border-bottom-color: #ff5a47; border-left-color: #ff5a47; border-width: calc(var(--w) * .045); }
+.lk.dr { bottom: 1px; right: 1px; border-bottom-color: #ff5a47; border-right-color: #ff5a47; border-width: calc(var(--w) * .045); }
+.zone.fz .card { width: 100%; height: 100%; }
+.zone.fz .card img { object-position: 50% 26%; }
+.zone.fz .card .face .art, .zone.fz .card .face .st { display: none; }
+
+.minilog { flex: 1; min-height: 22px; border: 0; background: none; padding: 0 2px; text-align: left; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
+.minilog .log { overflow: hidden; font-size: 12.5px; gap: 1px; } .minilog .log div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .minilog .log .d { display: none; }
+.handhead { display: flex; gap: 6px; align-items: center; font: 600 11px var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); min-width: 0; }
+.handhead > span { white-space: nowrap; } .handhead .grow { flex: 1; }
+.handhead .note { text-transform: none; letter-spacing: 0; font: 500 12px var(--body); color: var(--accent-ink); overflow: hidden; text-overflow: ellipsis; }
+.handhead .btn { text-transform: none; letter-spacing: .01em; min-height: 30px; padding: 0 9px; font-size: 12.5px; color: var(--fg); }
+.hand { display: flex; gap: 6px; overflow-x: auto; padding: 4px 3px 8px; min-height: calc(var(--hw) * 1.458 + 12px); scrollbar-width: thin; align-items: flex-start; }
+.hand .card { --w: var(--hw); }
+.hand.tight { gap: 6px; }
+.hand.tight .card + .card { margin-left: var(--ov, 0px); }
+.hand .card.act { transform: translateY(-3px); }
+.hand-empty { color: var(--muted); font-size: 13px; align-self: center; }
+
+/* ---- barra azioni */
+.actions { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.actions .msg { flex: 1; min-width: 0; font-size: 13.5px; color: var(--muted); }
+.actions .msg b { color: var(--pick); font-weight: 600; }
+.actions .grow { flex: 1; }
+
+/* ---- colonna destra (PC) */
+.insp { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.insp-head { display: flex; gap: 12px; align-items: flex-start; }
+.insp-head .card { --w: 112px; cursor: default; }
+.insp-head h3 { margin: 0 0 4px; font: 700 17px/1.15 var(--display); text-wrap: balance; }
+.tl { font-size: 12.5px; color: var(--muted); } .sl { font: 600 13px var(--display); margin-top: 3px; font-variant-numeric: tabular-nums; }
+.where { font-size: 11.5px; color: var(--accent-ink); margin-top: 4px; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+.ctext { font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.acts { display: flex; flex-direction: column; gap: 6px; }
+.acts button { text-align: left; border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); border-radius: 9px; padding: 9px 12px; font-weight: 600; font-size: 14px; line-height: 1.25; }
+.acts button small { display: block; font-weight: 400; color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.empty-hint { color: var(--muted); font-size: 13.5px; }
+.logbox { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+.logbox h4, .sec-h { margin: 0; font: 600 11px var(--display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; }
+.log { overflow: auto; font-size: 13px; line-height: 1.45; display: flex; flex-direction: column; gap: 2px; min-height: 0; }
+.log div { overflow-wrap: anywhere; } .log .turn { font: 600 11px var(--display); letter-spacing: .1em; text-transform: uppercase; color: var(--accent-ink); margin-top: 6px; }
+.log .move, .log .info, .log .draw { color: var(--muted); } .log .move b, .log .draw b { color: var(--fg); font-weight: 500; }
+.log .d { color: var(--muted); } .log i { font-style: normal; color: var(--accent-ink); } .log .neg { color: var(--bad); }
+
+/* ---- fogli */
+.sheet-back { position: fixed; inset: 0; background: rgba(4,8,10,.6); display: flex; align-items: flex-end; justify-content: center; z-index: 30; }
+.sheet { background: var(--surface); color: var(--fg); width: 100%; max-width: 640px; max-height: 88%; overflow: auto; border-radius: 18px 18px 0 0; display: flex; flex-direction: column; gap: 12px;
+  padding: 16px max(16px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); box-shadow: 0 -8px 40px rgba(0,0,0,.5); }
+.sheet h3 { margin: 0; font: 700 18px/1.2 var(--display); text-wrap: balance; }
+.sheet .sub { margin: 0; color: var(--muted); font-size: 13.5px; }
+.sheet .row { display: flex; gap: 8px; flex-wrap: wrap; }
+.sheet .row .btn { flex: 1; }
+.sheet > .row:last-child { position: sticky; bottom: 0; background: var(--surface); padding-top: 10px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); margin-bottom: calc(-16px - env(safe-area-inset-bottom, 0px)); z-index: 2; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 12px 10px; }
+.tile { display: flex; flex-direction: column; gap: 4px; align-items: center; min-width: 0; position: relative; }
+.tile .card { --w: 78px; }
+.tile .pn { font-size: 11.5px; line-height: 1.2; text-align: center; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.tile .wh { font-size: 10.5px; color: var(--accent-ink); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; text-align: center; }
+.tile .info { position: absolute; top: -6px; right: 0; width: 26px; height: 26px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-2); font: 700 13px var(--display); display: grid; place-items: center; padding: 0; z-index: 1; }
+.tile .mini { border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); border-radius: 7px; font-size: 11.5px; font-weight: 600; padding: 4px 6px; width: 100%; line-height: 1.15; }
+.opts { display: flex; flex-direction: column; gap: 6px; }
+.opts button { text-align: left; border: 1px solid var(--line); background: var(--surface-2); border-radius: 10px; padding: 10px 12px; display: flex; gap: 10px; align-items: center; min-width: 0; }
+.opts button .card { --w: 38px; } .opts button div { min-width: 0; }
+.opts .k { font-weight: 600; display: block; } .opts .dsc { font-size: 12.5px; color: var(--muted); display: block; overflow-wrap: anywhere; }
+.tips div { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 14px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--line); background: var(--surface-2); border-radius: 999px; padding: 6px 12px; font-size: 13.5px; }
+.chip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
+.yn { display: flex; gap: 12px; align-items: flex-start; } .yn .card { --w: 84px; }
+.field { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; width: 100%; }
+textarea.field { min-height: 130px; font: 13px/1.4 ui-monospace, Menlo, Consolas, monospace; resize: vertical; }
+.set-row { display: flex; gap: 12px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--line); }
+.set-row input { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--accent); flex: none; }
+.set-row b { display: block; font-weight: 600; } .set-row span { color: var(--muted); font-size: 13px; }
+.lic { font-size: 12.5px; color: var(--muted); line-height: 1.5; } .lic a { color: var(--accent-ink); }
+.pop { position: fixed; z-index: 35; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 8px; box-shadow: 0 10px 40px rgba(0,0,0,.6); display: flex; flex-direction: column; gap: 6px; }
+.acts button.minor { border-color: var(--line); background: var(--surface-2); font-weight: 500; }
+.toast { position: fixed; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 9px 16px; border-radius: 999px; font-size: 13.5px; font-weight: 500; z-index: 60; max-width: calc(100% - 32px); text-align: center; }
+
+/* ---- pagine mazzi */
+.page { overflow: auto; min-height: 0; display: flex; flex-direction: column; gap: 14px; max-width: 760px; width: 100%; margin: 0 auto; padding-bottom: 12px; }
+.drop { border: 2px dashed var(--line); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; background: var(--surface); }
+.drop.over { border-color: var(--pick); background: color-mix(in srgb, var(--pick) 10%, var(--surface)); }
+.drop h3 { margin: 0; font: 700 18px var(--display); } .drop p { margin: 0; color: var(--muted); font-size: 13.5px; max-width: 60ch; }
+.drop .row { display: flex; gap: 8px; flex-wrap: wrap; }
+.decklist { display: flex; flex-direction: column; gap: 8px; }
+.deckrow { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: flex; gap: 10px; align-items: center; min-width: 0; }
+.deckrow.cur { border-color: var(--accent); }
+.deckrow .nfo { flex: 1; min-width: 0; } .deckrow .n { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .deckrow .c { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.deckrow .thumbs { display: flex; } .deckrow .thumbs .card { --w: 26px; margin-left: -8px; box-shadow: 0 0 0 1px var(--surface); } .deckrow .thumbs .card:first-child { margin-left: 0; }
+.ed-line { display: flex; gap: 8px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.ed-line .card { --w: 30px; } .ed-line .nm { flex: 1; min-width: 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: none; border: 0; text-align: left; padding: 0; }
+.ed-line .q { font: 600 14px var(--display); width: 2.2em; text-align: center; font-variant-numeric: tabular-nums; }
+.ed-line .pm { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); font-size: 18px; line-height: 1; padding: 0; }
+.results { display: flex; flex-direction: column; max-height: 260px; overflow: auto; border-radius: 10px; }
+.results button { text-align: left; background: var(--surface); border: 0; border-bottom: 1px solid var(--line); padding: 8px 10px; display: flex; gap: 8px; align-items: center; }
+.results button .card { --w: 24px; }
+.warn { color: var(--bad); font-size: 13px; margin: 0; }
+.loader { height: 100%; display: grid; place-items: center; text-align: center; }
+.loader .ring { width: 54px; height: 54px; border-radius: 50%; border: 4px solid var(--line); border-top-color: var(--accent); margin: 0 auto 14px; animation: spin 1s linear infinite; }
+.loader h2 { font: 700 20px var(--display); margin: 0 0 4px; text-transform: uppercase; letter-spacing: .04em; } .loader p { color: var(--muted); margin: 0; font-size: 14px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .zone.pick, .loader .ring { animation: none; } .card { transition: none; } }
+
+@media (min-width: 900px) {
+  :root { --g: 8px; }
+  .app { gap: 12px; padding-block: 14px; grid-template-rows: auto minmax(0, 1fr); }
+  .brand { font-size: 22px; }
+  .deckbar { display: none; }
+  .top .deckbar { display: flex; flex: 1; max-width: 560px; margin-left: 18px; }
+  .stage { grid-template-columns: minmax(0, 1fr) 350px; gap: 16px; }
+  .side { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+  .insp { flex: none; max-height: 62%; overflow: auto; } .logbox { flex: 1; }
+  .mat-wrap { padding: 14px; gap: 10px; }
+  .mat { grid-template-columns: repeat(7, var(--cw)); grid-template-areas: ". . e1 . e2 . bn" "fz m1 m2 m3 m4 m5 gy" "ex s1 s2 s3 s4 s5 dk"; }
+  .zone.fz, .pile { height: var(--ch); }
+  .zone.fz .card .face .art, .zone.fz .card .face .st { display: grid; } .zone.fz .card img, .pile img { object-position: 50% 50%; }
+  .pile img { opacity: .9; } .pile .meta { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(6,10,12,.8); padding: 4px 0 5px; flex-direction: row; justify-content: center; align-items: baseline; gap: 6px; }
+  .pile .meta b { font-size: calc(var(--cw) * .2); } .pile .meta i { font-size: calc(var(--cw) * .11); }
+  .sheet-back { align-items: center; } .sheet { border-radius: 18px; max-height: 84%; }
+  .minilog { display: none; }
+  .hand { justify-content: center; } .card:not(.plain):hover { transform: translateY(-2px); }
+  .zone .card.def:hover { transform: rotate(90deg) scale(.685); }
+  .stage.wide1 { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 520px) { .deckrow .thumbs { display: none; } }
+@media (max-width: 899px) { .top .deckbar { display: none; } .top { gap: 8px; } .brand { font-size: 16px; } .tabs button { padding: 6px 11px; font-size: 13px; } }
+</style>
+
+<div class="app" id="app"><div class="loader" style="grid-row: 1 / -1"><div><div class="ring"></div><h2>Tavolo di Prova</h2><p id="loadmsg">Preparo il tavolo…</p></div></div></div>
+<div id="layer"></div>
+
+<script type="module">
+const $ = (s, el = document) => el.querySelector(s);
+const app = $("#app"), layer = $("#layer");
+const setLoad = (t) => { const el = $("#loadmsg"); if (el) el.textContent = t; };
+function fatal(e) {
+  app.innerHTML = `<div class="loader" style="grid-row:1/-1"><div><h2>Il tavolo non si è aperto</h2><p style="max-width:44ch;margin:0 auto 10px">Ricarica la pagina. Se succede ancora, copia questo messaggio e mandalo a Claude:</p><p class="warn" style="user-select:all;max-width:60ch;margin:0 auto">${String(e && e.message || e).replace(/</g, "&lt;")}</p></div></div>`;
+}
+// ---- logica di gioco (core.js): inserita qui quando la pagina viene costruita, così la pagina è un file solo
+/*__CORE__*/
+
+// ---------------------------------------------------------------- stato
+const WIDE = window.matchMedia("(min-width: 900px)");
+// su GitHub Pages l'indirizzo del codice sorgente si ricava da quello della pagina
+const SRC_URL = /\.github\.io$/.test(location.hostname) ? `https://github.com/${location.hostname.split(".")[0]}/${location.pathname.split("/").filter(Boolean)[0] || ""}` : "";
+const S = { view: "duel", decks: [], deckId: null, duel: null, ask: null, forced: [], seed: 1, sel: [], places: [], sheet: null, info: null, focus: null, pop: null, editing: null, hidePrompt: false,
+  cfg: { chainAll: false, autoZoneMon: false, autoZoneST: true, quickTap: true, autoSingle: true, autoAtk: false, images: true } };
+let DB, LIB, SCRIPTS, IMG = new Set(), VER = null, ACTS = [];
+const ls = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
+function toast(t) { const d = document.createElement("div"); d.className = "toast"; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2600); }
+const uid = () => "d" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const curDeck = () => S.decks.find((d) => d.id === S.deckId) || null;
+const saveDecks = () => ls.set("tdp2_decks", S.decks);
+
+// ---------------------------------------------------------------- avvio
+async function gunzipJSON(url) {
+  const res = await fetch(url); if (!res.ok) throw new Error(`${url}: risposta ${res.status}`);
+  const bin = atob((await res.text()).trim()); const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  if (typeof DecompressionStream === "undefined") throw new Error("questo browser è troppo vecchio per aprire i dati delle carte (manca DecompressionStream): aggiornalo");
+  const ds = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+  return JSON.parse(await new Response(ds).text());
+}
+async function boot() {
+  try {
+    setLoad("Carico il motore delle regole…");
+    const j = (u, d) => fetch(u).then((r) => (r.ok ? r.json() : d)).catch(() => d);
+    // il motore: prima la copia accanto alla pagina, altrimenti la stessa versione dalla rete di distribuzione di npm
+    const pEng = import("./engine/index.js").catch(() => import("https://cdn.jsdelivr.net/npm/ocgcore-wasm@0.1.6/dist/index.js")), pCards = gunzipJSON("cards.gz.b64.txt"), pScripts = gunzipJSON("scripts.gz.b64.txt");
+    const [mod, strings, seed, imgs, ver] = await Promise.all([pEng, j("strings.json", {}), j("seed.json", []), j("img/index.json", []), j("data-version.json", null)]);
+    LIB = await mod.default({ sync: true });
+    setLoad("Carico le carte…"); DB = new CardDB(await pCards, strings);
+    setLoad("Carico le regole di ogni carta…"); SCRIPTS = await pScripts;
+    IMG = new Set(imgs); VER = ver;
+    S.decks = ls.get("tdp2_decks", null) || JSON.parse(JSON.stringify(seed));
+    S.cfg = { ...S.cfg, ...ls.get("tdp2_cfg", {}) };
+    S.deckId = ls.get("tdp2_last", null); if (!curDeck()) S.deckId = S.decks[0]?.id || null;
+    if (curDeck()) newHand(false); else S.view = "decks";
+    if (!ls.get("tdp2_tip", 0) && curDeck()) S.sheet = { kind: "html", html: `<h3>Come si gioca qui</h3><div class="opts tips"><div><b>Tocca una carta con il bordo dorato</b> per giocarla. Se puoi farci più cose, compare un piccolo menu.</div><div><b>Tienila premuta</b> per leggerla e vedere tutte le azioni, anche "Posiziona coperta". Sul PC: tasto destro, e per leggere basta passarci sopra il mouse.</div><div><b>Annulla</b> torna indietro di una mossa, <b>Nuova mano</b> rimescola e ricomincia.</div></div><div class="row"><button class="btn primary" data-act="tipok">Ho capito</button></div>` };
+    render();
+  } catch (e) { console.error(e); fatal(e); }
+}
+function newHand(keepSeed) {
+  const deck = curDeck(); if (!deck || !LIB) return;
+  if (!keepSeed) S.seed = (Math.random() * 2 ** 31) | 0 || 1;
+  ls.set("tdp2_last", deck.id);
+  if (S.duel) S.duel.destroy();
+  S.duel = new Session(LIB, DB, SCRIPTS, S.cfg); S.sel = []; S.places = []; S.sheet = null; S.info = null; S.pop = null; S.focus = null; S.hidePrompt = false;
+  try { S.ask = S.duel.start({ main: deck.main, extra: deck.extra, forced: S.forced.slice(), seed: S.seed }); }
+  catch (e) { S.ask = null; console.error(e); toast("Errore del motore: " + e.message); }
+}
+function respond(r) {
+  S.sel = []; S.places = []; S.sheet = null; S.info = null; S.pop = null; S.hidePrompt = false;
+  try { S.ask = S.duel.respond(r); } catch (e) { console.error(e); toast("Errore del motore: " + e.message); }
+  if (S.duel.invalid) toast("Il motore non accetta questa scelta: provane un'altra");
+  render();
+}
+
+// ---------------------------------------------------------------- carte
+const LK = [[0x80, "u"], [0x2, "d"], [0x8, "l"], [0x20, "r"], [0x40, "ul"], [0x100, "ur"], [0x1, "dl"], [0x4, "dr"]];
+function imgOf(code) { if (IMG.has(code)) return code; const c = DB.c(code); if (c && c[0] && IMG.has(c[0])) return c[0]; return null; }
+// Immagini dalla rete: le scarica il browser di chi usa l'app, una volta per carta, e poi le tiene nella sua memoria.
+// Prima fonte: il server da cui EDOPro stesso scarica le immagini; riserva: YGOPRODeck. Se una fonte non risponde mai viene lasciata stare.
+const IMG_SRC = [(c) => `https://pics.projectignis.org:2096/pics/${c}.jpg`, (c) => `https://images.ygoprodeck.com/images/cards_small/${c}.jpg`];
+const srcStat = IMG_SRC.map(() => ({ ok: 0, fail: 0 })), imgState = new Map();
+const srcDead = (k) => srcStat[k].ok === 0 && srcStat[k].fail >= 6;
+function remoteState(code) {
+  let st = imgState.get(code); if (st) return st;
+  const c = DB.c(code), ids = [code]; if (c && c[0] && c[0] !== code) ids.push(c[0]);
+  st = { list: [], i: 0, ok: false, bad: false }; for (const id of ids) IMG_SRC.forEach((f, k) => { if (!srcDead(k)) st.list.push([f(id), k]); });
+  if (!st.list.length) st.bad = true; imgState.set(code, st); return st;
+}
+const hasImg = (code) => imgOf(code) != null || (S.cfg.images && imgState.get(code)?.ok === true);
+// remote = false per gli elenchi lunghi (ricerca carte): lì niente richieste alla rete
+function imgTag(code, remote = true) {
+  const ic = imgOf(code); if (ic) return `<img src="img/${ic}.jpg" alt="" draggable="false">`;
+  if (!S.cfg.images || !DB.has(code)) return ""; let st = imgState.get(code);
+  if (!st) { if (!remote) return ""; st = remoteState(code); } if (st.bad) return "";
+  return `<img class="rimg ${st.ok ? "ok" : ""}" src="${st.list[st.i][0]}" data-rc="${code}" alt="" draggable="false" referrerpolicy="no-referrer">`;
+}
+document.addEventListener("load", (ev) => { const t = ev.target; if (t.tagName !== "IMG" || !t.dataset.rc) return; const st = imgState.get(+t.dataset.rc); if (!st) return;
+  const cur = st.list[st.i]; if (cur && t.getAttribute("src") === cur[0] && !st.ok) { st.ok = true; srcStat[cur[1]].ok++; } t.classList.add("ok"); }, true);
+document.addEventListener("error", (ev) => { const t = ev.target; if (t.tagName !== "IMG" || !t.dataset.rc) return; const st = imgState.get(+t.dataset.rc); if (!st) return;
+  const cur = st.list[st.i]; if (cur && t.getAttribute("src") === cur[0]) { srcStat[cur[1]].fail++; st.ok = false; do { st.i++; } while (st.i < st.list.length && srcDead(st.list[st.i][1])); if (st.i >= st.list.length) st.bad = true; }
+  if (st.bad) t.remove(); else { t.classList.remove("ok"); t.src = st.list[st.i][0]; } }, true);
+function cardHTML(code, o = {}) {
+  const { q = null, cls = "", attrs = "", field = false, tag = "button", remote = true } = o;
+  const c = DB.c(code), t = c ? c[2] : 0, ic = hasImg(code);
+  const pos = q && q.position != null ? q.position : 1;
+  const fd = field && (pos & POS.FACEDOWN), def = field === "m" && (pos & POS.DEFENSE);
+  let inner;
+  {
+    let art = "", st = "";
+    if (t & T.MONSTER) { const lv = c[3]; art = t & T.LINK ? `LINK<small>${lv}</small>` : t & T.XYZ ? `R${lv}<small>RANGO</small>` : `★${lv}<small>${t & T.TOKEN ? "SEGNA" : "LIVELLO"}</small>`;
+      st = t & T.LINK ? `${c[6] < 0 ? "?" : c[6]}` : `${c[6] < 0 ? "?" : c[6]}/${c[7] < 0 ? "?" : c[7]}`; }
+    else art = t & T.SPELL ? "M<small>MAGIA</small>" : t & T.TRAP ? "T<small>TRAPPOLA</small>" : "?";
+    const mk = t & T.LINK ? (c[10] || 0) : 0;
+    inner = `<span class="face"><span class="nm">${esc(DB.name(code))}</span><span class="art"><span>${art}</span></span><span class="st">${st}</span></span>${mk ? LK.filter(([b]) => mk & b).map(([, k]) => `<span class="lk ${k}"></span>`).join("") : ""}${imgTag(code, remote)}`;
+  }
+  let extra = "";
+  if (field === "m" && q && c && (t & T.MONSTER) && !fd) { const mod = q.attack !== c[6] || (!(t & T.LINK) && q.defense !== c[7]);
+    if (ic || mod) extra += `<span class="strip ${mod ? "mod" : ""}">${q.attack}${t & T.LINK ? "" : "/" + q.defense}</span>`; }
+  if (q && q.overlayCards && q.overlayCards.length) extra += `<span class="badge" title="Materiali Xyz">${q.overlayCards.length}</span>`;
+  else if (q && q.counters && Object.keys(q.counters).length) extra += `<span class="badge" title="Segnalini">${Object.values(q.counters).reduce((a, b) => a + b, 0)}</span>`;
+  if (field && q && (q.status & 1) && !fd) extra += `<span class="badge neg" title="Effetti annullati">✕</span>`;
+  return `<${tag} class="card f-${frame(DB, code)} ${fd ? "fd" : ""} ${def ? "def" : ""} ${cls}" ${attrs} aria-label="${esc(DB.name(code))}" data-code="${code}">${inner}${extra}</${tag}>`;
+}
+// bordo dorato solo se con la carta si può fare qualcosa di più che posizionarla coperta o girarla
+const has = (l, s, code, ctrl = 0) => actionsFor(DB, S.ask, l, s, code, ctrl).some((x) => x.kind !== "set" && x.kind !== "pos");
+const cardAttrs = (l, s, code) => `data-act="card" data-l="${l}" data-s="${s}" data-c="${code}"`;
+
+// zone principali puntate dalle frecce dei tuoi Link (utile per piazzare gli altri mostri dell'Extra Deck)
+const DIRS = [[0x40, -1, -1], [0x80, -1, 0], [0x100, -1, 1], [0x8, 0, -1], [0x20, 0, 1], [0x1, 1, -1], [0x2, 1, 0], [0x4, 1, 1]];
+function pointedZones(mz) {
+  const out = new Set();
+  mz.forEach((q, seq) => { if (!q || !q.code) return; const c = DB.c(q.code); if (!c || !(c[2] & T.LINK) || (q.position & POS.FACEDOWN)) return;
+    const mk = (q.link && q.link.marker) || c[10]; const r = seq >= 5 ? 0 : 1, col = seq === 5 ? 1 : seq === 6 ? 3 : seq;
+    for (const [b, dr, dc] of DIRS) { if (!(mk & b)) continue; const R2 = r + dr, C2 = col + dc;
+      if (R2 === 1 && C2 >= 0 && C2 <= 4) out.add(C2); else if (R2 === 0 && (C2 === 1 || C2 === 3)) out.add(C2 === 1 ? 5 : 6); } });
+  return out;
+}
+
+// ---------------------------------------------------------------- tavolo
+const isPlaceAsk = (a) => a && (a.type === M.SELECT_PLACE || a.type === M.SELECT_DISFIELD);
+const ownPlaces = (a) => (isPlaceAsk(a) ? freePlaces(a.field_mask, 0).filter((p) => p.player === 0) : []);
+const boardPick = () => isPlaceAsk(S.ask) && ownPlaces(S.ask).length > 0 && freePlaces(S.ask.field_mask, 0).every((p) => p.player === 0);
+function matHTML(d) {
+  const mz = d.zone(0, LOC.MZONE), sz = d.zone(0, LOC.SZONE), gy = d.zone(0, LOC.GRAVE), ban = d.zone(0, LOC.REMOVED), ex = d.zone(0, LOC.EXTRA), deckN = d.count(0, LOC.DECK);
+  const picking = boardPick(), free = picking ? ownPlaces(S.ask) : [], pts = pointedZones(mz);
+  const z = (area, l, s, label, cls = "") => {
+    const q = (l === LOC.MZONE ? mz : sz)[s];
+    if (l === LOC.MZONE && pts.has(s)) cls += " pointed";
+    if (picking && free.some((p) => p.location === l && p.sequence === s)) return `<button class="zone pick ${cls}" style="grid-area:${area}" data-act="place" data-l="${l}" data-s="${s}" aria-label="Scegli ${label}"><span class="zl">qui</span></button>`;
+    if (q && q.code) return `<div class="zone ${cls}" style="grid-area:${area}">${cardHTML(q.code, { q, field: l === LOC.MZONE ? "m" : "s", cls: !picking && has(l, s, q.code) ? "act" : "", attrs: cardAttrs(l, s, q.code) })}</div>`;
+    return `<div class="zone ${cls}" style="grid-area:${area}"><span class="zl">${label}</span></div>`;
+  };
+  const pile = (area, name, list, loc, n) => {
+    const cardsIn = list ? list.filter((q) => q && q.code) : []; const top = loc === LOC.GRAVE || loc === LOC.REMOVED ? cardsIn[cardsIn.length - 1] : null; const ic = top ? imgTag(top.code) : "";
+    const act = !picking && list && list.some((q, i) => q && q.code && has(loc, i, q.code));
+    return `<button class="pile ${act ? "act" : ""}" style="grid-area:${area}" ${loc ? `data-act="pile" data-l="${loc}"` : "disabled"} aria-label="${name}: ${n ?? cardsIn.length} carte">${ic || (loc === LOC.EXTRA || !loc ? `<span class="back"></span>` : "")}<span class="meta"><b>${n ?? cardsIn.length}</b><i>${name}</i></span></button>`;
+  };
+  return `<div class="mat">${z("e1", LOC.MZONE, 5, "Extra", "emz")}${z("e2", LOC.MZONE, 6, "Extra", "emz")}
+    ${[0, 1, 2, 3, 4].map((i) => z("m" + (i + 1), LOC.MZONE, i, "Mostro")).join("")}${[0, 1, 2, 3, 4].map((i) => z("s" + (i + 1), LOC.SZONE, i, "M/T")).join("")}
+    ${z("fz", LOC.SZONE, 5, "Terreno", "fz")}${pile("gy", "Cimitero", gy, LOC.GRAVE)}${pile("bn", "Banditi", ban, LOC.REMOVED)}${pile("ex", "Extra", ex, LOC.EXTRA)}${pile("dk", "Mazzo", null, 0, deckN)}</div>`;
+}
+const PH = [[1, "DP"], [2, "SP"], [4, "M1"], [8 | 16 | 32 | 64 | 128, "BP"], [256, "M2"], [512, "EP"]];
+function tableHTML() {
+  const d = S.duel; if (!d) return `<div class="table"><p class="empty-hint">Scegli un mazzo e premi <b>Nuova mano</b>.</p></div>`;
+  const lp = d.lp();
+  const status = `<div class="status"><span>Turno <b>${d.turn}</b></span><span class="phases">${PH.map(([b, n]) => `<span class="ph ${d.phase & b ? "on" : ""}">${n}</span>`).join("")}</span>
+    <span class="sp">LP <b>${lp[0]}</b></span><span><b>${d.moves}</b> ${d.moves === 1 ? "mossa" : "mosse"}</span>${d.errors.length ? `<button class="warn-chip" data-act="errors">avvisi motore ${d.errors.length}</button>` : ""}</div>`;
+  const om = d.zone(1, LOC.MZONE).filter((q) => q && q.code), os = d.zone(1, LOC.SZONE).filter((q) => q && q.code);
+  const opp = `<button class="opp" data-act="opp"><span>Avversario · LP <b>${lp[1]}</b> · mano <b>${d.count(1, LOC.HAND)}</b> · mazzo <b>${d.count(1, LOC.DECK)}</b> · cimitero <b>${d.count(1, LOC.GRAVE)}</b>${om.length || os.length ? ` · in campo <b>${om.length + os.length}</b>` : ""}</span></button>`;
+  const hand = d.zone(0, LOC.HAND).map((q, i) => [q, i]).filter(([q]) => q && q.code);
+  const handHTML = hand.map(([q, i]) => cardHTML(q.code, { cls: has(LOC.HAND, i, q.code) ? "act" : "", attrs: cardAttrs(LOC.HAND, i, q.code) })).join("");
+  return `<div class="table">${status}<div class="mat-wrap">${opp}${matHTML(d)}</div>
+    <div class="handhead"><span>Mano · ${hand.length}</span>${S.forced.length ? `<span class="note">${S.forced.length} ${S.forced.length === 1 ? "scelta" : "scelte"} da te</span>` : ""}<span class="grow"></span>
+      <button class="btn small" data-act="pickhand" title="Decidi tu le carte della mano iniziale">Scegli la mano</button><button class="btn small" data-act="restart" title="Ricomincia con la stessa mano (tasto R)">↻ Stessa mano</button></div>
+    <div class="hand" id="hand" data-n="${hand.length}">${handHTML || `<span class="hand-empty">Nessuna carta in mano</span>`}</div>
+    <button class="minilog" data-act="log" aria-label="Apri la cronologia completa"><span class="log">${d.log.slice(-6).map((l) => `<div class="${l.kind}">${l.html}</div>`).join("")}</span></button></div>`;
+}
+function actionsHTML() {
+  const d = S.duel, a = S.ask; if (!d) return "";
+  const undo = `<button class="btn" data-act="undo" ${d.moves ? "" : "disabled"} title="Annulla l'ultima mossa (Z)">↶ Annulla</button>`;
+  if (d.ended) return `${undo}<span class="msg">Duello finito.</span><button class="btn primary" data-act="newhand">Nuova mano</button>`;
+  if (!a) return `${undo}<span class="msg">Il motore si è fermato: premi Annulla o Nuova mano.</span>`;
+  if (a.type === M.SELECT_IDLECMD) { const n = a.summons.length + a.special_summons.length + a.activates.length + a.spell_sets.length + a.monster_sets.length + a.pos_changes.length;
+    return `${undo}<button class="btn" data-act="allacts">Azioni <span class="n">${n}</span></button><span class="grow"></span>${a.to_bp ? `<button class="btn" data-act="idle" data-a="6">Battle</button>` : ""}${a.to_ep ? `<button class="btn" data-act="idle" data-a="7">Fine turno</button>` : ""}`; }
+  if (a.type === M.SELECT_BATTLECMD) return `${undo}<button class="btn" data-act="allacts">Azioni <span class="n">${a.chains.length + a.attacks.length}</span></button><span class="grow"></span>${a.to_m2 ? `<button class="btn" data-act="battle" data-a="2">Main Phase 2</button>` : ""}${a.to_ep ? `<button class="btn" data-act="battle" data-a="3">Fine turno</button>` : ""}`;
+  if (boardPick()) return `${undo}<span class="msg"><b>${a.count > 1 ? `Tocca ${a.count} zone evidenziate` : "Tocca una zona evidenziata"}</b> per scegliere dove va la carta.</span>`;
+  return `${undo}<span class="grow"></span><button class="btn primary" data-act="reopen">Rispondi alla richiesta</button>`;
+}
+function logHTML(n = 200) { const d = S.duel; return d ? d.log.slice(-n).map((l) => `<div class="${l.kind}">${l.html}</div>`).join("") : ""; }
+
+// ---------------------------------------------------------------- scheda carta
+function detailHTML(f, withActs) {
+  const c = DB.c(f.code); if (!c) return `<p class="empty-hint">Carta sconosciuta (#${f.code}).</p>`;
+  const acts = withActs && f.l ? actionsFor(DB, S.ask, f.l, f.s, f.code, f.ctrl || 0) : [];
+  if (withActs) ACTS = acts;
+  const where = f.l ? `${LOC_NAME[f.l] || ""}${f.ctrl ? " avversario" : ""}` : "";
+  return `<div class="insp-head">${cardHTML(f.code, { tag: "div", cls: "plain" })}<div style="min-width:0"><h3>${esc(c[11])}</h3><div class="tl">${esc(typeLine(DB, f.code))}</div><div class="sl">${esc(statLine(DB, f.code, f.q))}</div>${where ? `<div class="where">${esc(where)}</div>` : ""}</div></div>
+    ${acts.length ? `<div class="acts">${acts.map((x, i) => `<button data-act="doact" data-i="${i}">${esc(x.label.split(": ")[0])}${x.label.includes(": ") ? `<small>${esc(x.label.split(": ").slice(1).join(": "))}</small>` : ""}</button>`).join("")}</div>` : ""}
+    <div class="ctext">${esc(c[12])}</div>`;
+}
+function sideHTML() {
+  const f = S.focus;
+  return `<aside class="side"><div class="insp" id="insp">${f ? detailHTML(f, false) : `<p class="empty-hint">Passa il mouse su una carta per leggerla. Fai clic su una carta con il bordo dorato per vedere cosa puoi farci.</p>`}</div>
+    <div class="logbox"><h4><span>Cronologia</span><span>${S.duel ? S.duel.log.length : 0}</span></h4><div class="log" id="log">${logHTML()}</div></div></aside>`;
+}
+
+// ---------------------------------------------------------------- richieste del motore
+const IT_SEL = [[/^use as Link Material$/i, "usare come materiale Link"], [/^use as Fusion Material$/i, "usare come materiale Fusione"], [/^use as Synchro Material$/i, "usare come materiale Synchro"],
+  [/^use as Xyz Material$/i, "usare come materiale Xyz"], [/^banish$/i, "bandire"], [/^discard$/i, "scartare"], [/^destroy$/i, "distruggere"], [/^send to the GY$/i, "mandare al cimitero"],
+  [/^add to your hand$/i, "aggiungere alla mano"], [/^Special Summon$/i, "evocare specialmente"], [/^return to the hand$/i, "far tornare in mano"], [/^Set( to the field)?$/i, "posizionare"],
+  [/^Tribute$/i, "offrire come tributo"], [/^shuffle into the Deck$/i, "rimescolare nel mazzo"], [/^target$/i, "bersagliare"], [/^attach( as material)?$/i, "collegare come materiale"],
+  [/^return to the Deck$/i, "rimettere nel mazzo"], [/^place on the field$/i, "mettere sul campo"], [/^negate$/i, "annullare"], [/^change position$/i, "cambiare di posizione"], [/^Normal Summon$/i, "evocare normalmente"]];
+function itHint(t) {
+  if (!t) return t; const m = t.match(/^Select the card\(s\) to (.+?)\.?$/i) || t.match(/^Select (?:a|the) card to (.+?)\.?$/i);
+  if (m) { for (const [re, it] of IT_SEL) if (re.test(m[1].trim())) return "Scegli le carte da " + it; return "Scegli le carte: " + m[1]; }
+  if (/^Select the effect to activate/i.test(t)) return "Scegli l'effetto da attivare";
+  if (/^Select the position/i.test(t)) return "Scegli la posizione";
+  return t;
+}
+const whereOf = (c) => `${LOC_NAME[c.location & 0x7f] || ""}${c.controller === 1 ? " avv." : ""}`;
+const tile = (c, i, act, cls = "", note = "") => `<div class="tile">${cardHTML(c.code, { cls, attrs: `data-act="${act}" data-i="${i}"` })}<button class="info" data-act="info" data-c="${c.code}" aria-label="Leggi la carta">i</button><div class="pn">${esc(DB.name(c.code))}</div><div class="wh">${note || whereOf(c)}</div></div>`;
+const lookBtn = `<button class="btn ghost" data-act="hide">Guarda il tavolo</button><button class="btn ghost" data-act="undo" title="Annulla l'ultima mossa">↶ Annulla</button>`;
+function promptHTML(a) {
+  const db = DB, title = itHint(S.duel.hint || "");
+  const hdr = (t, sub) => `<h3>${esc(t)}</h3>${sub ? `<p class="sub">${sub}</p>` : ""}`;
+  switch (a.type) {
+    case M.SELECT_EFFECTYN: { let dd = db.desc(a.description); const parts = [db.name(a.code), LOC_NAME[a.location & 0x7f] || ""]; dd = dd.replace(/%ls/g, () => parts.shift() ?? "");
+      if (/^(Activate the Trigger Effect|Attivare l'Effetto ad Innesco)/i.test(dd) || !dd) dd = "Effetto a innesco: puoi attivarlo adesso.";
+      return `<div class="yn">${cardHTML(a.code, { attrs: `data-act="info" data-c="${a.code}"` })}<div>${hdr(`Attivare ${db.name(a.code)}?`, esc(dd) + ` · <span class="where">${whereOf(a)}</span>`)}</div></div>
+        <div class="row"><button class="btn primary" data-act="yn" data-y="1">Sì, attiva</button><button class="btn" data-act="yn" data-y="0">No</button></div><div class="row">${lookBtn}</div>`; }
+    case M.SELECT_YESNO: return hdr(db.desc(a.description) || "Confermi?") + `<div class="row"><button class="btn primary" data-act="yesno" data-y="1">Sì</button><button class="btn" data-act="yesno" data-y="0">No</button></div><div class="row">${lookBtn}</div>`;
+    case M.SELECT_OPTION: return hdr(title && !/^Select/i.test(title) ? title : "Scegli un'opzione") + `<div class="opts">${a.options.map((o, i) => `<button data-act="option" data-i="${i}"><div><span class="k">${esc(db.desc(o) || "Opzione " + (i + 1))}</span></div></button>`).join("")}</div><div class="row">${lookBtn}</div>`;
+    case M.SELECT_CHAIN: return hdr(a.forced ? "Scegli quale effetto attivare per primo" : a.spe_count === 127 ? "Effetti che si sono innescati" : "Vuoi rispondere in catena?", a.forced ? "Questi effetti sono obbligatori." : "Scegli quale attivare. Se ne attivi uno, poi potrai scegliere anche gli altri.") +
+      `<div class="opts">${a.selects.map((c, i) => `<button data-act="chain" data-i="${i}">${cardHTML(c.code, { tag: "span", cls: "plain" })}<div><span class="k">${esc(db.name(c.code))}</span><span class="dsc">${esc(db.desc(c.description) || "Attiva effetto")} · ${whereOf(c)}</span></div></button>`).join("")}</div>
+      <div class="row">${a.forced ? "" : `<button class="btn" data-act="chain" data-i="-1">Non attivare niente</button>`}${lookBtn}</div>`;
+    case M.SELECT_CARD: case M.SELECT_TRIBUTE: { const multi = a.max > 1;
+      // scelta singola: le copie uguali nella stessa pila (mazzo, cimitero…) si mostrano una volta sola con il numero di copie
+      const seen = new Map(); const list = []; a.selects.forEach((c, i) => { const fld = c.location === LOC.MZONE || c.location === LOC.SZONE; const k = multi || fld ? "i" + i : `${c.code}|${c.location}|${c.controller}`;
+        if (seen.has(k)) seen.get(k).n++; else { const e = { c, i, n: 1 }; seen.set(k, e); list.push(e); } });
+      return hdr(title || (multi ? "Scegli le carte" : "Scegli una carta"), multi ? (a.min === a.max ? `Scegline ${a.min}, poi conferma.` : `Scegline da ${a.min} a ${a.max}, poi conferma.`) : "") +
+        `<div class="grid">${list.map(({ c, i, n }) => tile(c, i, "pick", S.sel.includes(i) ? "sel" : "", n > 1 ? `${whereOf(c)} · ${n} copie` : "")).join("")}</div>
+        <div class="row">${multi ? `<button class="btn primary" data-act="pickok" ${S.sel.length >= a.min && S.sel.length <= a.max ? "" : "disabled"}>Conferma <span class="n">${S.sel.length}/${a.min === a.max ? a.min : a.max}</span></button>` : ""}${a.can_cancel ? `<button class="btn" data-act="pickcancel">Rinuncia</button>` : ""}${lookBtn}</div>`; }
+    case M.SELECT_UNSELECT_CARD: { const n = a.select_cards.length;
+      return hdr(title || "Scegli le carte", `${a.unselect_cards.length ? `Già scelte: ${a.unselect_cards.length}. ` : ""}Tocca una carta per sceglierla${a.unselect_cards.length ? ", o una già scelta per toglierla" : ""}${a.can_finish ? ". Quando hai finito premi Fatto." : "."}`) +
+        `<div class="grid">${a.select_cards.map((c, i) => tile(c, i, "unsel")).join("")}${a.unselect_cards.map((c, i) => tile(c, n + i, "unsel", "sel", "scelta")).join("")}</div>
+        <div class="row">${a.can_finish ? `<button class="btn primary" data-act="unsel" data-i="-1">Fatto</button>` : ""}${a.can_cancel && !a.can_finish ? `<button class="btn" data-act="unsel" data-i="-1">Rinuncia</button>` : ""}${lookBtn}</div>`; }
+    case M.SELECT_SUM: { const all = a.selects; const lv = (c) => c.amount & 0xffff; const sum = S.sel.reduce((s, i) => s + lv(all[i]), 0) + a.selects_must.reduce((s, c) => s + lv(c), 0);
+      return hdr(title || `Scegli carte per un totale di ${a.amount}`, `Totale ora: ${sum} su ${a.amount}${a.selects_must.length ? " · obbligatorie: " + a.selects_must.map((c) => esc(db.name(c.code))).join(", ") : ""}`) +
+        `<div class="grid">${all.map((c, i) => tile(c, i, "pick", S.sel.includes(i) ? "sel" : "", `${whereOf(c)} · vale ${lv(c)}`)).join("")}</div><div class="row"><button class="btn primary" data-act="sumok">Conferma</button>${lookBtn}</div>`; }
+    case M.SELECT_PLACE: case M.SELECT_DISFIELD: { const fr = freePlaces(a.field_mask, 0);
+      return hdr(title || "Scegli la zona") + `<div class="opts">${fr.slice(0, 16).map((p, i) => `<button data-act="placei" data-i="${i}"><div><span class="k">${p.player === 1 ? "Campo avversario" : "Tuo campo"} · ${p.location === LOC.MZONE ? (p.sequence > 4 ? "zona Mostri Extra" : "zona Mostri " + (p.sequence + 1)) : (p.sequence === 5 ? "zona Terreno" : "zona Magie/Trappole " + (p.sequence + 1))}</span></div></button>`).join("")}</div><div class="row">${lookBtn}</div>`; }
+    case M.SELECT_POSITION: { const names = [[1, "Attacco"], [4, "Difesa"], [2, "Attacco coperto"], [8, "Coperto in difesa"]];
+      return `<div class="yn">${cardHTML(a.code, { attrs: `data-act="info" data-c="${a.code}"` })}<div>${hdr(`In che posizione metti ${db.name(a.code)}?`)}</div></div><div class="row">${names.filter(([b]) => a.positions & b).map(([b, n], k) => `<button class="btn ${k === 0 ? "primary" : ""}" data-act="pos" data-p="${b}">${n}</button>`).join("")}</div><div class="row">${lookBtn}</div>`; }
+    case M.ANNOUNCE_NUMBER: return hdr(title || "Dichiara un numero") + `<div class="chips">${a.options.map((o, i) => `<button class="chip" data-act="num" data-i="${i}">${String(o)}</button>`).join("")}</div>`;
+    case M.ANNOUNCE_RACE: case M.ANNOUNCE_ATTRIB: { const isR = a.type === M.ANNOUNCE_RACE; const av = BigInt(a.available); const names = isR ? RACE_NAMES : ATTR_NAMES;
+      return hdr(title || (isR ? "Dichiara un Tipo" : "Dichiara un Attributo"), `Scegline ${a.count}, poi conferma.`) + `<div class="chips">${names.map((n, i) => (av & (1n << BigInt(i))) ? `<button class="chip ${S.sel.includes(i) ? "on" : ""}" data-act="annpick" data-i="${i}">${n}</button>` : "").join("")}</div><div class="row"><button class="btn primary" data-act="annok" ${S.sel.length === a.count ? "" : "disabled"}>Conferma</button></div>`; }
+    case M.ANNOUNCE_CARD: return hdr(title || "Dichiara il nome di una carta", "Scrivi il nome in inglese e scegli dalla lista.") + `<input class="field" type="search" id="annq" placeholder="Cerca una carta"><div class="results" id="annres"></div>`;
+  }
+  return hdr("Richiesta che l'app non conosce (" + a.type + ")", "Puoi lasciar scegliere all'app oppure annullare la mossa.") + `<div class="row"><button class="btn" data-act="skip">Scegli tu</button><button class="btn" data-act="undo">Annulla la mossa</button></div>`;
+}
+function pileHTML(l, p = 0) {
+  const d = S.duel; const list = d.zone(p, l); const name = { 16: "Cimitero", 32: "Banditi", 64: "Extra Deck" }[l];
+  const items = list.map((q, i) => { if (!q || !q.code) return ""; const acts = p === 0 ? actionsFor(DB, S.ask, l, i, q.code) : [];
+    return `<div class="tile">${cardHTML(q.code, { q, cls: acts.length ? "act" : "", attrs: `data-act="info" data-c="${q.code}"` })}<div class="pn">${esc(DB.name(q.code))}</div>${l === LOC.REMOVED && (q.position & POS.FACEDOWN) ? `<div class="wh">coperta</div>` : ""}${acts.map((x) => { const k = ACTS.push(x) - 1; return `<button class="mini" data-act="doact" data-i="${k}">${esc(x.label.split(": ")[0])}</button>`; }).join("")}</div>`; }).join("");
+  return `<h3>${p ? "Avversario · " : ""}${name} · ${list.filter((q) => q && q.code).length}</h3><p class="sub">Tocca una carta per leggerla. Sotto quelle con il bordo dorato trovi cosa puoi fare adesso.</p><div class="grid">${items || `<p class="sub">Vuoto</p>`}</div><div class="row"><button class="btn" data-act="close">Chiudi</button></div>`;
+}
+function oppHTML() {
+  const d = S.duel; const f = [...d.zone(1, LOC.MZONE), ...d.zone(1, LOC.SZONE)].filter((q) => q && q.code), g = d.zone(1, LOC.GRAVE).filter((q) => q && q.code), b = d.zone(1, LOC.REMOVED).filter((q) => q && q.code);
+  const grid = (list) => list.length ? `<div class="grid">${list.map((q) => `<div class="tile">${cardHTML(q.code, { q, attrs: `data-act="info" data-c="${q.code}"` })}<div class="pn">${esc(DB.name(q.code))}</div></div>`).join("")}</div>` : `<p class="sub">Niente</p>`;
+  return `<h3>Avversario</h3><p class="sub">L'avversario non gioca: ha un mazzo di 40 carte segnaposto e passa sempre. Serve solo perché le tue carte abbiano qualcosa davanti.</p>
+    <div class="sec-h"><span>In campo</span><span>${f.length}</span></div>${grid(f)}<div class="sec-h"><span>Cimitero</span><span>${g.length}</span></div>${grid(g)}<div class="sec-h"><span>Banditi</span><span>${b.length}</span></div>${grid(b)}<div class="row"><button class="btn" data-act="close">Chiudi</button></div>`;
+}
+function allActsHTML() {
+  const a = S.ask; const rows = []; ACTS = [];
+  const add = (arr, label, mk) => arr.forEach((c, i) => rows.push([c, label, c.description != null ? DB.desc(c.description) : "", mk(i)]));
+  if (a.type === M.SELECT_IDLECMD) { add(a.activates, "Attiva", (i) => ({ type: R.IDLECMD, action: 5, index: i })); add(a.summons, "Evocazione Normale", (i) => ({ type: R.IDLECMD, action: 0, index: i }));
+    add(a.special_summons, "Evocazione Speciale", (i) => ({ type: R.IDLECMD, action: 1, index: i })); add(a.spell_sets, "Posiziona coperta", (i) => ({ type: R.IDLECMD, action: 4, index: i }));
+    add(a.monster_sets, "Posiziona coperto", (i) => ({ type: R.IDLECMD, action: 3, index: i })); add(a.pos_changes, "Cambia posizione", (i) => ({ type: R.IDLECMD, action: 2, index: i })); }
+  else if (a.type === M.SELECT_BATTLECMD) { add(a.chains, "Attiva", (i) => ({ type: R.BATTLECMD, action: 0, index: i })); add(a.attacks, "Attacca", (i) => ({ type: R.BATTLECMD, action: 1, index: i })); }
+  return `<h3>Cosa puoi fare adesso</h3><div class="opts">${rows.map(([c, label, dsc, r]) => { const k = ACTS.push({ label, r }) - 1;
+    return `<button data-act="doact" data-i="${k}">${cardHTML(c.code, { tag: "span", cls: "plain" })}<div><span class="k">${label}: ${esc(DB.name(c.code))}</span><span class="dsc">${esc(dsc)}${dsc ? " · " : ""}${LOC_NAME[c.location] || ""}</span></div></button>`; }).join("") || `<p class="sub">Nessuna azione disponibile: puoi solo passare il turno.</p>`}</div><div class="row"><button class="btn" data-act="close">Chiudi</button></div>`;
+}
+function handListHTML() {
+  const deck = curDeck(); const f = (S.sheet.filter || "").toLowerCase(); const counts = new Map(); for (const c of deck.main) counts.set(c, (counts.get(c) || 0) + 1);
+  return [...counts.entries()].filter(([c]) => DB.name(c).toLowerCase().includes(f)).sort((x, y) => DB.name(x[0]).localeCompare(DB.name(y[0])))
+    .map(([c, n]) => { const k = S.sheet.pick.filter((x) => x === c).length;
+      return `<div class="ed-line">${cardHTML(c, { tag: "span", cls: "plain" })}<button class="nm" data-act="info" data-c="${c}">${esc(DB.name(c))}</button><button class="pm" data-act="hminus" data-c="${c}" aria-label="Togli" ${k ? "" : "disabled"}>−</button><span class="q">${k}/${n}</span><button class="pm" data-act="hplus" data-c="${c}" aria-label="Aggiungi">+</button></div>`; }).join("");
+}
+function pickHandHTML() { const sh = S.sheet;
+  return `<h3>Scegli la mano iniziale</h3><p class="sub">Fino a 5 carte. Quelle che non scegli vengono pescate a caso. La scelta resta finché non la svuoti.</p>
+    <div class="chips">${sh.pick.map((c, i) => `<button class="chip on" data-act="hdel" data-i="${i}">${esc(DB.name(c))} ✕</button>`).join("") || `<span class="sub">Nessuna carta scelta: la mano è tutta a caso.</span>`}</div>
+    <input class="field" type="search" id="hq" placeholder="Filtra le carte del mazzo" value="${esc(sh.filter || "")}"><div id="hlist" style="max-height:38vh;overflow:auto">${handListHTML()}</div>
+    <div class="row"><button class="btn primary" data-act="hgo">Gioca questa mano</button><button class="btn" data-act="hclear">Svuota</button><button class="btn ghost" data-act="close">Chiudi</button></div>`; }
+function settingsHTML() {
+  const row = (k, t, d) => `<label class="set-row" for="cfg-${k}"><input type="checkbox" id="cfg-${k}" data-cfg="${k}" ${S.cfg[k] ? "checked" : ""}><div><b>${t}</b><span>${d}</span></div></label>`;
+  const v = VER ? `Carte ${VER.cards.toLocaleString("it-IT")}, regole aggiornate al ${String(VER.CardScripts?.[1] || VER.built).slice(0, 10).split("-").reverse().join("/")}.` : "";
+  return `<h3>Impostazioni</h3>
+    ${row("chainAll", "Chiedimi se voglio rispondere in catena", "Spento: l'app chiede solo per gli effetti che si innescano. Acceso: chiede anche ogni volta che potresti attivare un effetto rapido o una carta dalla mano, come fa EDOPro.")}
+    ${row("quickTap", "Tocco rapido", "Acceso: se con una carta puoi fare una cosa sola (a parte posizionarla coperta), toccarla la fa subito. Per leggerla o posizionarla tienila premuta, sul PC usa il tasto destro. Spento: ogni tocco apre il menu.")}
+    ${row("autoSingle", "Scelte obbligate fatte dall'app", "Acceso: quando c'è una sola carta o una sola opzione che puoi scegliere, l'app la sceglie senza chiedere. La trovi comunque nella cronologia.")}
+    ${row("autoAtk", "Evoca sempre in Attacco", "Acceso: l'app non chiede la posizione quando evochi specialmente e mette il mostro in Attacco.")}
+    ${row("autoZoneMon", "Le zone dei mostri le sceglie l'app", "Acceso: i mostri vanno nella prima zona libera senza chiedere. Lascialo spento se giochi mostri Link, dove la zona conta.")}
+    ${row("autoZoneST", "Le zone di magie e trappole le sceglie l'app", "Acceso: magie e trappole vanno nella prima zona libera senza chiedere.")}
+    ${row("images", "Immagini delle carte", "Acceso: il tuo browser scarica l'immagine di ogni carta la prima volta che la vede e poi la tiene in memoria. Spento: le carte sono tessere colorate con nome e valori.")}
+    <div class="sec-h" style="margin-top:6px"><span>Informazioni e licenze</span></div>
+    <div class="lic"><p style="margin:0 0 6px">${v} Le regole sono quelle di EDOPro: dove Master Duel ha una lista di carte vietate diversa, qui non viene applicata.</p>
+    <p style="margin:0 0 6px">Il motore delle regole è <a href="https://github.com/edo9300/ygopro-core" target="_blank" rel="noopener">ygopro-core</a> di Project Ignis, compilato per il browser da <a href="https://github.com/n1xx1/ocgcore-wasm" target="_blank" rel="noopener">ocgcore-wasm</a>; le regole di ogni carta vengono da <a href="https://github.com/ProjectIgnis/CardScripts" target="_blank" rel="noopener">CardScripts</a> e i dati da <a href="https://github.com/ProjectIgnis/BabelCDB" target="_blank" rel="noopener">BabelCDB</a>. Motore e regole sono software libero con licenza <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener">GNU AGPL 3.0</a>: anche questa app è distribuita con la stessa licenza e il suo codice si può leggere e riusare liberamente${SRC_URL ? `: <a href="${SRC_URL}" target="_blank" rel="noopener">codice sorgente</a>` : ""}.</p>
+    <p style="margin:0 0 6px">Le immagini non fanno parte dell'app: il browser le scarica dal server di immagini di Project Ignis e, come riserva, da YGOPRODeck.</p>
+    <p style="margin:0">Yu-Gi-Oh! è un marchio di Konami. Questa è un'app amatoriale gratuita, senza alcun legame con Konami.</p></div>
+    <div class="row"><button class="btn" data-act="close">Chiudi</button></div>`;
+}
+function sheetBody() {
+  const a = S.ask, k = S.sheet?.kind;
+  if (k === "card") return detailHTML(S.sheet.f, true) + `<div class="row"><button class="btn" data-act="close">Chiudi</button></div>`;
+  if (k === "pile") { ACTS = []; return pileHTML(S.sheet.l); }
+  if (k === "opp") return oppHTML();
+  if (k === "allacts") return allActsHTML();
+  if (k === "pickhand") return pickHandHTML();
+  if (k === "settings") return settingsHTML();
+  if (k === "log") return `<h3>Cronologia</h3><div class="log" style="max-height:60vh">${logHTML(400)}</div><div class="row"><button class="btn" data-act="close">Chiudi</button></div>`;
+  if (k === "errors") return `<h3>Avvisi del motore</h3><p class="sub">Di solito indicano una carta il cui codice ha un problema. Se una mossa si comporta in modo strano, copia questo testo e mandalo a Claude.</p><div class="ctext" style="user-select:all;font-size:12.5px">${esc(S.duel.errors.slice(-20).join("\n\n"))}</div><div class="row"><button class="btn" data-act="close">Chiudi</button></div>`;
+  if (k === "html") return S.sheet.html;
+  if (S.view === "duel" && a && S.duel && !S.duel.ended && a.type !== M.SELECT_IDLECMD && a.type !== M.SELECT_BATTLECMD && !boardPick() && !S.hidePrompt) return promptHTML(a);
+  return "";
+}
+function renderLayer() {
+  let html = ""; const body = sheetBody();
+  if (body) html += `<div class="sheet-back" data-back="1"><div class="sheet" role="dialog" aria-modal="true">${body}</div></div>`;
+  if (S.info) html += `<div class="sheet-back" data-back="2" style="z-index:40"><div class="sheet" role="dialog" aria-modal="true">${detailHTML(S.info, false)}<div class="row"><button class="btn" data-act="infoclose">Chiudi</button></div></div></div>`;
+  if (S.pop) { ACTS = S.pop.acts; html += `<div class="pop" style="${S.pop.css}"><div class="acts">${S.pop.acts.map((x, i) => `<button class="${x.kind === "set" || x.kind === "pos" ? "minor" : ""}" data-act="doact" data-i="${i}">${esc(x.label.split(": ")[0])}${x.label.includes(": ") ? `<small>${esc(x.label.split(": ").slice(1).join(": "))}</small>` : ""}</button>`).join("")}</div>${WIDE.matches ? "" : `<button class="btn ghost small" data-act="read">Leggi la carta</button>`}</div>`; }
+  layer.innerHTML = html;
+  const q = $("#annq", layer); if (q) q.addEventListener("input", () => { $("#annres", layer).innerHTML = DB.search(q.value, 25).map(([c, n]) => `<button data-act="anncard" data-c="${c}">${cardHTML(c, { tag: "span", cls: "plain", remote: false })}${esc(n)}</button>`).join(""); });
+  const hq = $("#hq", layer); if (hq) hq.addEventListener("input", () => { S.sheet.filter = hq.value; $("#hlist", layer).innerHTML = handListHTML(); });
+  const lg = $(".sheet .log", layer); if (lg) lg.scrollTop = lg.scrollHeight;
+}
+
+// ---------------------------------------------------------------- mazzi
+function decksHTML() {
+  const rows = S.decks.map((d) => { const th = [...new Set(d.extra.length ? d.extra : d.main)].slice(0, 5);
+    return `<div class="deckrow ${d.id === S.deckId ? "cur" : ""}"><div class="thumbs">${th.map((c) => cardHTML(c, { tag: "span", cls: "plain" })).join("")}</div><div class="nfo"><div class="n">${esc(d.name)}</div><div class="c">${d.main.length} carte + ${d.extra.length} Extra</div></div>
+      <button class="btn small" data-act="edit" data-id="${d.id}">Modifica</button><button class="btn small primary" data-act="play" data-id="${d.id}">Prova</button></div>`; }).join("");
+  return `<div class="page"><div class="drop" id="drop"><h3>Aggiungi un mazzo</h3><p>Carica un file <b>.ydk</b> (quello che esportano EDOPro e YGOMobile) oppure incolla una lista. Funziona con qualsiasi carta ufficiale.</p>
+    <div class="row"><label class="btn primary" for="ydkfile">Carica file .ydk</label><input type="file" id="ydkfile" accept=".ydk,.txt,text/plain" multiple hidden><button class="btn" data-act="paste">Incolla una lista</button><button class="btn" data-act="newdeck">Mazzo vuoto</button></div></div>
+    <div class="sec-h"><span>I tuoi mazzi</span><span>${S.decks.length}</span></div>
+    ${rows ? `<div class="decklist">${rows}</div>` : `<p class="empty-hint">Ancora nessun mazzo. Caricane uno qui sopra.</p>`}
+    <p class="empty-hint">I mazzi restano salvati in questo browser, su questo dispositivo.</p></div>`;
+}
+function editorHTML() {
+  const e = S.editing; const group = (arr) => { const m = new Map(); for (const c of arr) m.set(c, (m.get(c) || 0) + 1); return [...m.entries()]; };
+  const line = (sec) => ([c, n]) => `<div class="ed-line">${cardHTML(c, { tag: "span", cls: "plain" })}<button class="nm" data-act="info" data-c="${c}">${esc(DB.name(c))}</button><button class="pm" data-act="edminus" data-sec="${sec}" data-c="${c}" aria-label="Togli una copia">−</button><span class="q">${n}</span><button class="pm" data-act="edplus" data-sec="${sec}" data-c="${c}" aria-label="Aggiungi una copia">+</button></div>`;
+  const w = deckWarnings(DB, e);
+  return `<div class="page"><div class="row" style="display:flex;gap:8px"><button class="btn ghost small" data-act="tab" data-v="decks">‹ Mazzi</button></div>
+    <label class="sec-h" for="edname">Nome del mazzo</label><input class="field" type="text" id="edname" value="${esc(e.name)}">
+    ${w.map((x) => `<p class="warn">${esc(x)}</p>`).join("")}
+    <label class="sec-h" for="edq">Aggiungi una carta</label><input class="field" type="search" id="edq" placeholder="Cerca per nome (in inglese)"><div class="results" id="edres"></div>
+    <div class="sec-h"><span>Mazzo principale</span><span>${e.main.length}</span></div><div>${group(e.main).map(line("main")).join("") || `<p class="empty-hint">Vuoto</p>`}</div>
+    <div class="sec-h"><span>Extra Deck</span><span>${e.extra.length}</span></div><div>${group(e.extra).map(line("extra")).join("") || `<p class="empty-hint">Vuoto</p>`}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-act="edplay">Salva e prova</button><button class="btn" data-act="edsave">Salva</button><button class="btn" data-act="edexport">Copia come .ydk</button>${e.id ? `<button class="btn danger" data-act="eddel" style="margin-left:auto">Elimina</button>` : ""}</div></div>`;
+}
+async function importText(text, name) {
+  const r = parseDeckText(DB, text);
+  if (!r.main.length && !r.extra.length) { toast("Non ho riconosciuto nessuna carta in " + (name || "questa lista")); return null; }
+  const deck = { id: uid(), name: (name || "Mazzo importato").replace(/\.(ydk|txt)$/i, "").slice(0, 60), main: r.main, extra: r.extra };
+  S.decks.push(deck); saveDecks();
+  if (r.miss.length) S.sheet = { kind: "html", html: `<h3>Mazzo importato, ma ${r.miss.length === 1 ? "una carta non è stata riconosciuta" : r.miss.length + " carte non sono state riconosciute"}</h3><p class="sub">Sono state lasciate fuori. Può succedere con carte non ufficiali o appena annunciate.</p><div class="ctext">${esc(r.miss.join("\n"))}</div><div class="row"><button class="btn primary" data-act="close">Ho capito</button></div>` };
+  return deck;
+}
+async function importFiles(files) {
+  let last = null; for (const f of files) { try { last = (await importText(await f.text(), f.name)) || last; } catch (e) { toast("Non riesco a leggere " + f.name); } }
+  if (last) { const keep = S.sheet; S.deckId = last.id; S.forced = []; S.view = "duel"; newHand(false); S.sheet = keep; toast(`${last.name}: ${last.main.length} carte + ${last.extra.length} Extra`); } render();
+}
+
+// ---------------------------------------------------------------- disegno
+const ICON_GEAR = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>`;
+function deckbarHTML() {
+  const opts = S.decks.map((dk) => `<option value="${dk.id}" ${dk.id === S.deckId ? "selected" : ""}>${esc(dk.name)}</option>`).join("");
+  return `<div class="deckbar"><select data-sel="deck" aria-label="Mazzo da provare">${opts}</select><button class="btn primary" data-act="newhand" title="Rimescola e pesca una mano nuova (tasto N)">Nuova mano</button></div>`;
+}
+function render() {
+  const duel = S.view === "duel" && S.decks.length;
+  const tabs = `<div class="tabs" role="tablist"><button role="tab" aria-selected="${S.view === "duel"}" data-act="tab" data-v="duel">Tavolo</button><button role="tab" aria-selected="${S.view !== "duel"}" data-act="tab" data-v="decks">Mazzi</button></div>`;
+  const bar = duel ? deckbarHTML() : "";
+  const top = `<header class="top"><div class="brand">Tavolo <i>di</i> Prova</div>${bar}${tabs}<button class="icon-btn" data-act="settings" aria-label="Impostazioni">${ICON_GEAR}</button></header>`;
+  let mid;
+  if (S.view === "edit") mid = `<main class="stage wide1">${editorHTML()}</main>`;
+  else if (!duel) mid = `<main class="stage wide1">${decksHTML()}</main>`;
+  else mid = `<main class="stage"><div class="col">${tableHTML()}<footer class="actions">${actionsHTML()}</footer></div>${sideHTML()}</main>`;
+  app.innerHTML = `${top}${duel ? bar : `<div class="deckbar"></div>`}${mid}`;
+  app.classList.toggle("nodeck", !duel);
+  layout(); renderLayer();
+  const l = $("#log"); if (l) l.scrollTop = l.scrollHeight;
+  const drop = $("#drop"); if (drop) { drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); }); drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+    drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("over"); if (e.dataTransfer?.files?.length) importFiles([...e.dataTransfer.files]); }); }
+}
+// dimensione delle carte: la più grande con cui tappetino, mano e comandi stanno in una schermata.
+// L'altezza del tavolo cresce in modo lineare con la larghezza della carta: misuro la parte fissa e risolvo.
+function layout() {
+  const tb = $(".table"); if (!tb) return; const wide = WIDE.matches;
+  const g = wide ? 8 : 5, pad = wide ? 14 : 8, cols = wide ? 7 : 5, rows = wide ? 3 : 3.52, hk = wide ? 1.22 : 1.03, k = (rows + hk) * 1.458;
+  const W = tb.clientWidth, H = tb.clientHeight; const root = document.documentElement; let cw = parseFloat(root.style.getPropertyValue("--cw")) || 62;
+  for (let pass = 0; pass < 2; pass++) {
+    const kids = [...tb.children].filter((c) => !c.classList.contains("minilog")); const content = kids.reduce((s, c) => s + c.offsetHeight, 0) + 6 * kids.length + (wide ? 0 : 22);
+    const fixed = content - k * cw; const cwW = (W - 2 * pad - (cols - 1) * g) / cols, cwH = (H - fixed - 2) / k;
+    const next = Math.floor(Math.max(40, Math.min(cwW, cwH, wide ? 128 : 104))); if (next === cw) break; cw = next;
+    root.style.setProperty("--cw", cw + "px"); root.style.setProperty("--hw", Math.floor(cw * hk) + "px");
+  }
+  const hand = $("#hand"); if (hand) { const n = +hand.dataset.n, hw = Math.floor(cw * hk), room = hand.clientWidth - 6, need = n * hw + (n - 1) * 6;
+    hand.classList.toggle("tight", n > 1 && need > room);
+    if (n > 1 && need > room) hand.style.setProperty("--ov", Math.max(-(hw * 0.6), Math.floor((room - n * hw) / (n - 1)) - 6) + "px"); }
+}
+new ResizeObserver(() => layout()).observe(app);
+WIDE.addEventListener("change", () => render());
+
+// ---------------------------------------------------------------- eventi
+function cardFocus(t) { const l = Number(t.dataset.l), s2 = Number(t.dataset.s), code = Number(t.dataset.c); return { code, l, s: s2, q: (S.duel.zone(0, l) || [])[s2] || null }; }
+// tocco su una carta di mano o campo: se c'è una sola cosa sensata da fare la fa subito, altrimenti apre un menu accanto alla carta
+function openCard(t) {
+  const f = cardFocus(t); S.focus = f; const acts = actionsFor(DB, S.ask, f.l, f.s, f.code), strong = acts.filter((x) => x.kind !== "set" && x.kind !== "pos");
+  if (S.cfg.quickTap && strong.length === 1) { respond(strong[0].r); return; }
+  const ins = $("#insp"); if (ins && WIDE.matches) ins.innerHTML = detailHTML(f, false);
+  if (!acts.length) { if (WIDE.matches) { S.pop = null; renderLayer(); } else readCard(t); return; }
+  const r = t.getBoundingClientRect(), w = Math.min(270, window.innerWidth - 24), x = Math.round(Math.max(12, Math.min(window.innerWidth - w - 12, r.left + r.width / 2 - w / 2)));
+  const above = r.top + r.height / 2 > window.innerHeight * 0.52;
+  S.pop = { acts: [...strong, ...acts.filter((x) => !strong.includes(x))], f, css: `left:${x}px;width:${w}px;${above ? `bottom:${Math.round(window.innerHeight - r.top + 8)}px` : `top:${Math.round(r.bottom + 8)}px`}` };
+  renderLayer();
+}
+// scheda completa della carta con tutte le azioni (tieni premuto sul telefono, tasto destro sul PC)
+function readCard(t) { S.pop = null; S.sheet = { kind: "card", f: cardFocus(t) }; renderLayer(); }
+let pressTimer = null, pressFired = false, pressXY = null;
+document.addEventListener("pointerdown", (ev) => { const t = ev.target.closest('.card[data-act="card"]'); pressFired = false; clearTimeout(pressTimer); if (!t || ev.pointerType === "mouse") return;
+  pressXY = [ev.clientX, ev.clientY]; pressTimer = setTimeout(() => { pressFired = true; readCard(t); }, 430); });
+document.addEventListener("pointermove", (ev) => { if (pressXY && Math.hypot(ev.clientX - pressXY[0], ev.clientY - pressXY[1]) > 10) { clearTimeout(pressTimer); pressXY = null; } });
+for (const e of ["pointerup", "pointercancel"]) document.addEventListener(e, () => { clearTimeout(pressTimer); pressXY = null; });
+document.addEventListener("contextmenu", (ev) => { const t = ev.target.closest('.card[data-act="card"]'); if (!t) return; ev.preventDefault(); if (!pressFired) readCard(t); });
+document.addEventListener("click", async (ev) => {
+  if (pressFired) { pressFired = false; return; } // il tocco lungo ha già aperto la scheda
+  const t = ev.target.closest("[data-act]");
+  if (!t) { const back = ev.target.dataset?.back; if (back === "2") { S.info = null; renderLayer(); } else if (back === "1") { if (S.sheet) { S.sheet = null; renderLayer(); } } else if (S.pop && !ev.target.closest(".pop")) { S.pop = null; renderLayer(); } return; }
+  const act = t.dataset.act, i = Number(t.dataset.i), a = S.ask;
+  if (S.pop && act !== "doact" && act !== "read") S.pop = null;
+  switch (act) {
+    case "tab": S.view = t.dataset.v; S.sheet = null; S.info = null; if (S.view === "duel" && !S.duel && curDeck()) newHand(false); render(); break;
+    case "settings": S.sheet = { kind: "settings" }; renderLayer(); break;
+    case "newhand": newHand(false); render(); break;
+    case "restart": newHand(true); render(); break;
+    case "undo": S.sheet = null; S.info = null; S.sel = []; S.places = []; S.hidePrompt = false; S.ask = S.duel.undo(); render(); break;
+    case "pickhand": S.sheet = { kind: "pickhand", pick: S.forced.slice(), filter: "" }; renderLayer(); break;
+    case "hplus": { const c = Number(t.dataset.c); const have = curDeck().main.filter((x) => x === c).length;
+      if (S.sheet.pick.length >= 5) toast("La mano iniziale è di 5 carte"); else if (S.sheet.pick.filter((x) => x === c).length < have) S.sheet.pick.push(c); renderLayer(); break; }
+    case "hminus": { const k = S.sheet.pick.lastIndexOf(Number(t.dataset.c)); if (k >= 0) S.sheet.pick.splice(k, 1); renderLayer(); break; }
+    case "hdel": S.sheet.pick.splice(i, 1); renderLayer(); break;
+    case "hclear": S.sheet.pick = []; renderLayer(); break;
+    case "hgo": S.forced = S.sheet.pick.slice(); S.sheet = null; newHand(false); render(); break;
+    case "close": S.sheet = null; renderLayer(); break;
+    case "hide": S.hidePrompt = true; S.sheet = null; render(); break;
+    case "reopen": S.hidePrompt = false; S.sheet = null; render(); break;
+    case "info": S.info = { code: Number(t.dataset.c) }; renderLayer(); break;
+    case "infoclose": S.info = null; renderLayer(); break;
+    case "card": openCard(t); break;
+    case "read": S.sheet = { kind: "card", f: S.pop.f }; S.pop = null; renderLayer(); break;
+    case "tipok": ls.set("tdp2_tip", 1); S.sheet = null; renderLayer(); break;
+    case "pile": S.sheet = { kind: "pile", l: Number(t.dataset.l) }; renderLayer(); break;
+    case "opp": S.sheet = { kind: "opp" }; renderLayer(); break;
+    case "log": S.sheet = { kind: "log" }; renderLayer(); break;
+    case "errors": S.sheet = { kind: "errors" }; renderLayer(); break;
+    case "allacts": S.sheet = { kind: "allacts" }; renderLayer(); break;
+    case "doact": { const x = ACTS[i]; if (x) respond(x.r); break; }
+    case "idle": respond({ type: R.IDLECMD, action: Number(t.dataset.a), index: null }); break;
+    case "battle": respond({ type: R.BATTLECMD, action: Number(t.dataset.a), index: null }); break;
+    case "yn": respond({ type: R.EFFECTYN, yes: t.dataset.y === "1" }); break;
+    case "yesno": respond({ type: R.YESNO, yes: t.dataset.y === "1" }); break;
+    case "option": respond({ type: R.OPTION, index: i }); break;
+    case "chain": respond({ type: R.CHAIN, index: i < 0 ? null : i }); break;
+    case "pick": { const RT = a.type === M.SELECT_TRIBUTE ? R.TRIBUTE : R.CARD;
+      if (a.type === M.SELECT_SUM || a.max > 1) { const k = S.sel.indexOf(i); if (k >= 0) S.sel.splice(k, 1); else if (a.type === M.SELECT_SUM || S.sel.length < a.max) S.sel.push(i); else toast(`Puoi sceglierne al massimo ${a.max}`); renderLayer(); }
+      else respond({ type: RT, indicies: [i] }); break; }
+    case "pickok": respond({ type: a.type === M.SELECT_TRIBUTE ? R.TRIBUTE : R.CARD, indicies: S.sel.slice() }); break;
+    case "pickcancel": respond({ type: a.type === M.SELECT_TRIBUTE ? R.TRIBUTE : R.CARD, indicies: null }); break;
+    case "sumok": respond({ type: R.SUM, indicies: [...a.selects_must.map((_, k) => k), ...S.sel.map((k) => k + a.selects_must.length)] }); break;
+    case "unsel": respond({ type: R.UNSELECT, index: i < 0 ? null : i }); break;
+    case "place": { const p = { player: 0, location: Number(t.dataset.l), sequence: Number(t.dataset.s) }; S.places.push(p);
+      if (S.places.length >= a.count) respond({ type: a.type === M.SELECT_PLACE ? R.PLACE : R.DISFIELD, places: S.places.slice() }); else { t.classList.remove("pick"); t.disabled = true; } break; }
+    case "placei": respond({ type: a.type === M.SELECT_PLACE ? R.PLACE : R.DISFIELD, places: [freePlaces(a.field_mask, 0)[i]] }); break;
+    case "pos": respond({ type: R.POSITION, position: Number(t.dataset.p) }); break;
+    case "num": respond({ type: R.NUMBER, value: i }); break;
+    case "annpick": { const k = S.sel.indexOf(i); if (k >= 0) S.sel.splice(k, 1); else if (S.sel.length < a.count) S.sel.push(i); renderLayer(); break; }
+    case "annok": respond(a.type === M.ANNOUNCE_RACE ? { type: R.RACE, races: S.sel.map((k) => 1n << BigInt(k)) } : { type: R.ATTRIB, attributes: S.sel.map((k) => 2 ** k) }); break;
+    case "anncard": respond({ type: R.ACARD, card: Number(t.dataset.c) }); break;
+    case "skip": respond(autoResponse(a)); break;
+    // mazzi
+    case "play": S.deckId = t.dataset.id; S.forced = []; S.view = "duel"; newHand(false); render(); break;
+    case "paste": S.sheet = { kind: "html", html: `<h3>Incolla una lista</h3><p class="sub">Il contenuto di un file .ydk, oppure una carta per riga con il nome in inglese: "3 Ash Blossom &amp; Joyous Spring".</p><input class="field" id="pname" type="text" placeholder="Nome del mazzo"><textarea class="field" id="ptext" placeholder="#main&#10;14558127&#10;14558127&#10;…"></textarea><div class="row"><button class="btn primary" data-act="pastego">Importa e prova</button><button class="btn" data-act="close">Chiudi</button></div>` }; renderLayer(); break;
+    case "pastego": { const txt = $("#ptext").value, nm = $("#pname").value.trim(); S.sheet = null; const d = await importText(txt, nm || "Mazzo incollato");
+      if (d) { const keep = S.sheet; S.deckId = d.id; S.forced = []; S.view = "duel"; newHand(false); S.sheet = keep; toast(`${d.name}: ${d.main.length} carte + ${d.extra.length} Extra`); } render(); break; }
+    case "newdeck": S.editing = { id: null, name: "Nuovo mazzo", main: [], extra: [] }; S.view = "edit"; render(); break;
+    case "edit": S.editing = JSON.parse(JSON.stringify(S.decks.find((x) => x.id === t.dataset.id))); S.view = "edit"; render(); break;
+    case "edplus": case "edminus": { const e = S.editing, arr = e[t.dataset.sec], c = Number(t.dataset.c);
+      if (act === "edplus") { if (arr.filter((x) => x === c).length < 3) arr.push(c); else toast("Massimo 3 copie"); } else { const k = arr.lastIndexOf(c); if (k >= 0) arr.splice(k, 1); }
+      e.name = $("#edname")?.value || e.name; const sc = $(".page").scrollTop; render(); $(".page").scrollTop = sc; break; }
+    case "addcard": { const e = S.editing, c = Number(t.dataset.c), arr = DB.isExtra(c) ? e.extra : e.main;
+      if (arr.filter((x) => x === c).length < 3) { arr.push(c); toast(`Aggiunta: ${DB.name(c)}`); } else toast("Massimo 3 copie");
+      e.name = $("#edname")?.value || e.name; const q = $("#edq")?.value || ""; render(); const qi = $("#edq"); if (qi) { qi.value = q; qi.dispatchEvent(new Event("input", { bubbles: true })); qi.focus(); } break; }
+    case "edexport": { const txt = toYdk(S.editing); try { await navigator.clipboard.writeText(txt); toast("Copiato: incollalo in un file .ydk"); } catch (e) { S.sheet = { kind: "html", html: `<h3>Copia questo testo</h3><p class="sub">Selezionalo tutto, copialo e salvalo in un file con estensione .ydk.</p><textarea class="field" readonly style="min-height:240px">${esc(txt)}</textarea><div class="row"><button class="btn" data-act="close">Chiudi</button></div>` }; renderLayer(); } break; }
+    case "edsave": case "edplay": { const e = S.editing; e.name = ($("#edname")?.value || "").trim() || "Senza nome"; if (!e.id) { e.id = uid(); S.decks.push(e); } else S.decks[S.decks.findIndex((x) => x.id === e.id)] = e; saveDecks(); toast("Mazzo salvato");
+      if (act === "edplay") { S.deckId = e.id; S.forced = []; S.view = "duel"; newHand(false); } else S.view = "decks"; render(); break; }
+    case "eddel": S.sheet = { kind: "html", html: `<h3>Eliminare "${esc(S.editing.name)}"?</h3><p class="sub">Il mazzo sparisce da questo browser. Non si può annullare.</p><div class="row"><button class="btn danger" data-act="eddelok">Elimina</button><button class="btn" data-act="close">Tienilo</button></div>` }; renderLayer(); break;
+    case "eddelok": S.decks = S.decks.filter((x) => x.id !== S.editing.id); saveDecks(); S.sheet = null; S.view = "decks"; if (S.deckId === S.editing.id) { S.deckId = S.decks[0]?.id || null; if (S.duel) { S.duel.destroy(); S.duel = null; } S.ask = null; } render(); break;
+  }
+});
+document.addEventListener("change", (ev) => {
+  const t = ev.target;
+  if (t.dataset.sel === "deck") { S.deckId = t.value; S.forced = []; newHand(false); render(); }
+  else if (t.dataset.cfg) { S.cfg[t.dataset.cfg] = t.checked; ls.set("tdp2_cfg", S.cfg); if (S.duel) S.duel.opts = { ...S.duel.opts, ...S.cfg }; if (t.dataset.cfg === "images") { const sh = S.sheet; render(); S.sheet = sh; renderLayer(); } }
+  else if (t.id === "ydkfile" && t.files?.length) importFiles([...t.files]);
+});
+document.addEventListener("input", (ev) => {
+  if (ev.target.id === "edq") $("#edres").innerHTML = DB.search(ev.target.value, 30).map(([c, n]) => `<button data-act="addcard" data-c="${c}">${cardHTML(c, { tag: "span", cls: "plain", remote: false })}${esc(n)}</button>`).join("");
+});
+// PC: il mouse sopra una carta la mostra a destra
+document.addEventListener("pointerover", (ev) => {
+  if (ev.pointerType !== "mouse" || !WIDE.matches || S.pop) return; const c = ev.target.closest(".card[data-code]"); if (!c || c.closest(".insp")) return;
+  const ins = $("#insp"); if (!ins) return; const code = Number(c.dataset.code); const l = Number(c.dataset.l) || 0, s = Number(c.dataset.s) || 0;
+  const q = l && S.duel ? (S.duel.zone(0, l) || [])[s] || null : null; S.focus = { code, l, s, q }; ins.innerHTML = detailHTML(S.focus, false);
+});
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape") { if (S.info) S.info = null; else if (S.pop) S.pop = null; else if (S.sheet) S.sheet = null; else return; renderLayer(); return; }
+  if (ev.target.matches("input, textarea, select") || ev.ctrlKey || ev.metaKey || ev.altKey || S.view !== "duel" || !S.duel) return;
+  const k = ev.key.toLowerCase();
+  if (k === "n") { newHand(false); render(); } else if (k === "r") { newHand(true); render(); }
+  else if (k === "z" && S.duel.moves) { S.sheet = null; S.info = null; S.sel = []; S.places = []; S.hidePrompt = false; S.ask = S.duel.undo(); render(); }
+});
+// accesso per le prove automatiche: stack() avvia una partita con le carte in cima al mazzo in un ordine preciso
+window.__tdp = { S, get DB() { return DB; }, respond, render,
+  stack(names) { const deck = curDeck(), rest = deck.main.slice(), top = names.map((n) => DB.find(n)); for (const c of top) { const i = rest.indexOf(c); if (i < 0) throw new Error("non nel mazzo: " + DB.name(c)); rest.splice(i, 1); }
+    if (S.duel) S.duel.destroy(); S.duel = new Session(LIB, DB, SCRIPTS, S.cfg); S.sheet = null; S.info = null; S.pop = null; S.hidePrompt = false; S.ask = S.duel.start({ main: deck.main, extra: deck.extra, seed: 1, stack: top.concat(rest) }); render(); } };
+boot();
+</script>
